@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.5.2
+
+Border colours are measured against what is outside the element rather than
+against its own background.
+
+A foreground and an edge are different questions. Text sits on the thing behind
+it, so its own background belongs in the stack. A border is a boundary, and
+1.4.11 asks whether that boundary can be told apart from what is adjacent to
+it, which is the page rather than the control's own fill. A solid button that
+sets its border to its own background colour measured 1.00:1 before this: true,
+and an answer to a question nobody asked. Against the page it is 14.68:1.
+
+Found by porting the same stack-compositing fix into the codebase this check
+was originally taken from, where the naive version produced a false failure on
+the one solid button in it.
+
 ## 0.5.1
 
 Stop leaving a temp directory behind on every runtime run.

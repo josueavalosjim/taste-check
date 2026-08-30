@@ -136,6 +136,37 @@ describe('runtime, against a fake page', () => {
 });
 
 describe('runtime, against a real browser', { skip: findBrowser() ? false : 'no Chrome found' }, () => {
+  test('an edge measures against what is outside it, a foreground over its own background', async () => {
+    // .solid sets its border to the same colour as its own background. Start
+    // the border's walk at the element and you composite it over that
+    // background and get 1.00:1, which is true and answers nothing: the edge
+    // a person sees is the one against the page. The label on the same button
+    // is the opposite case and does composite over the fill.
+    const result = await runRuntime(
+      {
+        url: PAGE,
+        timeout: 30000,
+        targets: [
+          { selector: '.solid', prop: 'borderTopColor', min: 3 },
+          { selector: '.solid', prop: 'color', min: 4.5 },
+        ],
+      },
+      HERE,
+    );
+
+    assert.deepEqual(result.problems, [], result.problems.join('\n'));
+    const border = result.samples.find((s) => s.bg.startsWith('borderTopColor'));
+    const label = result.samples.find((s) => s.bg.startsWith('color'));
+
+    assert.equal(border.ratio.toFixed(2), '14.68', 'the border must be measured against the page');
+    assert.ok(border.ratio > 10, 'measuring the border against its own fill would give 1.00');
+    // The label is the control case: it does sit on the fill, so the fill is
+    // in its stack and the page is behind that.
+    assert.match(label.bg, /2 layers/);
+    assert.equal(label.pass, true);
+  });
+
+
   test('it measures the fixture page and the states differ', async () => {
     const result = await runRuntime(
       {

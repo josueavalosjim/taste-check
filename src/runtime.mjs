@@ -17,6 +17,10 @@
  *   2. It can measure a state, because it can put the page into one first.
  *      A theme, an opened panel, a focused input.
  *
+ * A foreground composites over its own background. An edge measures against
+ * what is outside it. Those are different questions and getting them the same
+ * way round produces confident nonsense in both directions.
+ *
  * A selector that matches nothing is a failure, not a skipped target. So is a
  * border with no width: you asked for the contrast of an edge that is not
  * being drawn, and the honest answer is that the question is wrong.
@@ -42,7 +46,18 @@ const MEASURE = `(targets) => targets.map(({ selector, prop, againstParent }) =>
     if (!width) return { error: 'has a ' + prop + ' but no width, so no edge is drawn' };
   }
   const layers = [];
-  let node = againstParent ? el.parentElement : el;
+  // Two reasons to start one level up.
+  //
+  // A fill measured against itself scores 1.00, so againstParent hands us the
+  // parent instead.
+  //
+  // A border is the same, for a different reason. 1.4.11 asks whether the
+  // boundary of a control can be told apart from what is adjacent to it, and
+  // what is adjacent is the page, not the control's own fill. A solid button
+  // that sets its border to its own background colour measures 1.00:1 against
+  // that background: true, and an answer to a question nobody asked.
+  const outside = againstParent || prop.indexOf('border') === 0;
+  let node = outside ? el.parentElement : el;
   if (!node) return { error: 'has no parent to measure against' };
   while (node) {
     const bg = getComputedStyle(node).backgroundColor;

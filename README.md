@@ -227,6 +227,15 @@ page's own scripts, which is where a theme belongs because the page reads it at
 boot. `after` runs once there is a document, for opening a panel or focusing a
 field. Each state's setup is removed before the next one, so they cannot leak.
 
+**A foreground composites over its own background. An edge measures against
+what is outside it.** Those are different questions. Text sits on the thing
+behind it, so its own background belongs in the stack. A border is a boundary,
+and 1.4.11 asks whether that boundary can be told apart from what is adjacent
+to it, which is the page rather than the control's own fill. A solid button
+that sets its border to its own background colour measures 1.00:1 the first
+way and 14.68:1 the second, and only one of those is the edge anybody sees.
+Border properties are handled this way for you.
+
 Use `againstParent` when the thing being measured is a fill rather than a
 foreground. A selected row with its own background measured against itself
 scores 1.00, which is a pass that means nothing.

@@ -20,6 +20,11 @@
   .veil { background: rgba(255, 255, 255, 0.92); padding: 16px; }
   .on-veil { color: rgba(255, 255, 255, 0.95); }
 
+  /* A solid button whose border is the same colour as its own fill. Measured
+     against that fill it is 1.00:1, which is true and answers nothing. The
+     edge a person sees is the one against the page. */
+  .solid { background: rgba(0, 0, 0, 0.85); border: 1px solid rgba(0, 0, 0, 0.85); color: #fff; }
+
   .hidden { display: none; }
 </style>
 </head>
@@ -29,6 +34,7 @@
   <hr class="no-edge">
   <div class="scrim"><p class="on-scrim">white on a dark scrim over a light page</p></div>
   <div class="veil"><p class="on-veil">white on a light veil, which is unreadable</p></div>
+  <button class="solid">a solid button</button>
   <p class="hidden">not rendered</p>
 </body>
 </html>
