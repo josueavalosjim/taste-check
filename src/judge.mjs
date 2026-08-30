@@ -47,7 +47,7 @@ import { expand, label } from './files.mjs';
  * yourself wanting to add a rule about spacing or colour or type, it belongs
  * in a checklist file, not in this constant.
  */
-const FRAMING = `You are looking at these images for the first time.
+const FRAMING_HEAD = `You are looking at these images for the first time.
 
 You have not been told what changed, what it is for, or what the author was
 trying to do, and none of that is coming. Judge only what is in front of you,
@@ -65,7 +65,9 @@ For anything that is not a pass, name the specific thing you are looking at:
 which element, where on the screen, and what about it. A general impression is
 not enough to act on.
 
-Reply with JSON and nothing else, in this shape:
+`;
+
+const FRAMING_TAIL = `Reply with JSON and nothing else, in this shape:
 
 {"findings":[{"line":"<the checklist line, copied exactly>","verdict":"pass|fail|unsure","why":"<one or two sentences>"}]}
 
@@ -90,9 +92,20 @@ export function checklistLines(text) {
     .map((l) => l.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, '').trim());
 }
 
-/** The prompt handed to the judge: framing, then the checklist, verbatim. */
-export function buildPrompt(checklist) {
-  return `${FRAMING}${checklist.map((l) => `- ${l}`).join('\n')}\n`;
+/**
+ * The prompt handed to the judge: framing, the images, then the checklist.
+ *
+ * The image paths go in the prompt as well as on the command line, because
+ * the two families of tool want them in different places. Some accept image
+ * files as arguments; others read the prompt and open what it names. Naming
+ * them both ways costs a line and means the contract does not quietly exclude
+ * half the tools someone might reach for.
+ */
+export function buildPrompt(checklist, images = []) {
+  const shots = images.length
+    ? `IMAGES (open each one before answering):\n${images.map((i) => `- ${i}`).join('\n')}\n\n`
+    : '';
+  return `${FRAMING_HEAD}${shots}${FRAMING_TAIL}${checklist.map((l) => `- ${l}`).join('\n')}\n`;
 }
 
 /**
@@ -171,7 +184,7 @@ export function runJudge(config, cwd) {
     return { name: 'judge', findings, problems, failOn, summary: '' };
   }
 
-  const reply = runCommand(command, images, buildPrompt(lines), cwd);
+  const reply = runCommand(command, images, buildPrompt(lines, images.map((i) => label(i, cwd))), cwd);
   if (!reply.ok) {
     problems.push(reply.reason);
     return { name: 'judge', findings, problems, failOn, summary: '' };

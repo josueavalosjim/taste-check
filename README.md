@@ -152,6 +152,69 @@ direction to be wrong in.
 Template literal holes are read into rather than blanked, so a class written
 inside `` `card ${on ? 'card--on' : ''}` `` is seen.
 
+## The judge
+
+Everything above measures. This asks the question a measurement cannot: not
+whether the screen is correct, but whether it is any good.
+
+That question cannot be put to whoever just built the thing. The context that
+made the choices is the worst placed to find them wanting, because the
+reasoning that justified each one is still there ready to justify it again. So
+the judge is a separate process that sees your screenshots and your checklist
+and nothing else.
+
+```json
+{
+  "judge": {
+    "checklist": "design-checklist.md",
+    "shots": ["shots/*.png"],
+    "shotCommand": "node scripts/shots.mjs",
+    "command": "claude -p",
+    "failOn": "never"
+  }
+}
+```
+
+```bash
+taste-check judge
+```
+
+Your `command` receives the prompt on stdin and the image paths as arguments,
+so any model CLI works and no API key ever touches this tool. It must reply
+with JSON:
+
+```json
+{ "findings": [ { "line": "<the checklist line, verbatim>", "verdict": "pass|fail|unsure", "why": "..." } ] }
+```
+
+taste-check supplies the framing: you are seeing this cold, you have not been
+told what changed, answer every line, prefer unsure to a guess, do not be
+agreeable, and name the specific thing you are looking at. That part is method
+and it is the same for everyone.
+
+The checklist is yours. taste-check ships none, and there is a test asserting
+the framing mentions no design vocabulary at all, because a rule that arrives
+inside a tool is somebody else's taste with the tool's authority behind it.
+Checklist lines are list items in your file; a heading or a paragraph is prose
+and is not judged.
+
+### What the exit code means here
+
+A verdict is an opinion, so a `fail` prints as a note and the command exits 0.
+Set `failOn` to `"fail"` if you want it to block, knowing that two runs on the
+same screenshot can disagree.
+
+Whether the judge ran is not an opinion, and never advisory. Each of these
+exits 1 whatever `failOn` says:
+
+- no screenshots were produced or matched
+- the command exited non-zero
+- the reply was not parseable JSON
+- the reply skipped a checklist line, invented one, or answered one twice
+
+Without that split, "the judge did not run" and "the judge found nothing" print
+the same thing.
+
 ## Config
 
 Point your editor at `schema/config.schema.json` for completion and inline
@@ -170,9 +233,15 @@ from anywhere.
 | `treatments.approvedClasses` | Every class allowed to appear. |
 | `treatments.allowPrefixes` | Prefixes that are always allowed, as a deliberate escape hatch. |
 | `treatments.approvedValues` | Literal values allowed inside inline styles. |
+| `judge.checklist` | Your checklist file. List items are judged, prose is not. |
+| `judge.shots` | Screenshots to hand the judge. Matching nothing is a failure. |
+| `judge.shotCommand` | Optional command run first to produce those screenshots. |
+| `judge.command` | The model command. Prompt on stdin, image paths as arguments. |
+| `judge.failOn` | `"never"` (default) or `"fail"`. Whether a verdict blocks. |
 
 ```
-taste-check [options]
+taste-check [options]         Run the deterministic checks
+taste-check judge [options]   Ask a fresh-eyes judge about your screenshots
 
   -c, --config <path>   Config file (default: tastecheck.config.json)
       --only <name>     Run one check: contrast or treatments
@@ -180,7 +249,8 @@ taste-check [options]
       --version         Print the version
 ```
 
-Exit code is 1 if any check fails, 0 if every check ran and passed.
+Exit code is 1 if any check fails, 0 if every check ran and passed. The judge
+plays by the rules in its own section above.
 
 ## What this does not do
 
@@ -194,11 +264,11 @@ component are all invisible here. What this gives you is that the
 values in your token file relate to each other the way you said they should. It
 does not prove what a visitor sees.
 
-**Only some colour formats parse.** Hex in 3, 4, 6 and 8 digits, `rgb()` and
-`rgba()` in both the comma and the space syntax, and `white` / `black` /
-`transparent`. `hsl()`, `oklch()` and `color-mix()` are not parsed yet, and a
-value it cannot parse is a failure rather than a skip, so you will hear about
-it immediately.
+**Only some colour formats parse.** Hex in 3, 4, 6 and 8 digits; `rgb()`,
+`rgba()`, `hsl()`, `hsla()` and `hwb()`, each in both the comma and the space
+syntax; and `white` / `black` / `transparent`. The perceptual spaces
+(`oklch()`, `lab()`, `lch()`) and `color-mix()` are not parsed yet. A value it
+cannot parse fails, so you hear about it immediately.
 
 **There is no specificity resolution.** Scopes apply in the order you list
 them. If your tokens rely on `.a.b` beating `.b`, list the scopes in the order
@@ -212,22 +282,14 @@ invisible to it.
 
 Not built. Written down so the shape is clear.
 
-**A fresh-eyes checklist hook.** The deterministic checks here cover what can
-be measured. The judgment half of design review cannot be, and the useful
-pattern for it is a fresh context: a separate model call that sees a screenshot
-and a checklist, and nothing else. Judging in the same context that produced
-the work is unreliable, because the reasoning that justified a choice is still
-sitting there to justify it again. The plan is a plugin hook that takes your
-screenshot command and your checklist file and reports back in the same format
-as the checks above. The checklist stays yours: a shipped one would just be
-somebody else's taste.
-
 **A runtime mode**, closing the gap named above by measuring `getComputedStyle`
 in a real browser, as an optional peer dependency so the core stays free of one.
 
 **YAML configs**, once there is a reason to take on a parser.
 
-**More colour formats**, `hsl()` first.
+**The perceptual colour spaces**, `oklch()` first, which needs real colour
+space conversion and browser-checked tests rather than a formula taken on
+trust.
 
 ## Development
 

@@ -484,6 +484,7 @@ describe('the judge', () => {
     assert.match(prompt, /looking at these images for the first time/);
     assert.match(prompt, /Prefer "unsure" to a guess/);
     assert.match(prompt, /- Do the thing/);
+    assert.match(buildPrompt(['Do the thing'], ['shots/a.png']), /IMAGES \(open each one/);
     // No design opinion of ours is allowed to ride along in the framing.
     for (const word of ['contrast', 'spacing', 'colour', 'color', 'gradient', 'font']) {
       assert.ok(!prompt.toLowerCase().includes(word), `the framing must not mention ${word}`);

@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.3.0
+
+**`hsl()`, `hsla()` and `hwb()` parse.** Both syntaxes each, all four angle
+units, and hue wrapping in both directions. Every expected value in the tests
+was read out of a browser with `getComputedStyle` rather than derived from the
+formulas the parser uses. The perceptual spaces (`oklch()`, `lab()`,
+`color-mix()`) still fail loudly and are still named in the error.
+
+**`taste-check judge`.** A fresh-eyes review of your screenshots against your
+checklist, run by a model command you configure. It ships the framing and no
+design rules: a shipped checklist would just be somebody else's taste wearing
+the authority of a tool.
+
+It is a separate subcommand because a model's verdict is not reproducible. A
+"fail" prints as a note and exits 0 unless `judge.failOn` is `"fail"`. Whether
+the judge ran is a different question and never advisory: no screenshots, a
+command that exited non-zero, output that was not JSON, or a reply that skipped
+or invented a checklist line all exit 1 either way.
+
 ## 0.2.0
 
 `@layer` is now transparent. A `:root` inside `@layer tokens` resolves as a

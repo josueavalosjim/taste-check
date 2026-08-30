@@ -6,20 +6,44 @@
   "type": "object",
   "additionalProperties": false,
   "minProperties": 1,
-  "anyOf": [{ "required": ["contrast"] }, { "required": ["treatments"] }],
+  "anyOf": [
+    {
+      "required": [
+        "contrast"
+      ]
+    },
+    {
+      "required": [
+        "treatments"
+      ]
+    },
+    {
+      "required": [
+        "judge"
+      ]
+    }
+  ],
   "properties": {
-    "$schema": { "type": "string" },
+    "$schema": {
+      "type": "string"
+    },
     "contrast": {
       "type": "object",
       "description": "WCAG contrast ratios computed from your own custom properties.",
       "additionalProperties": false,
-      "required": ["tokens", "themes", "pairs"],
+      "required": [
+        "tokens",
+        "themes",
+        "pairs"
+      ],
       "properties": {
         "tokens": {
           "type": "array",
           "minItems": 1,
           "description": "CSS files holding the custom properties. Paths resolve against this config file. Later files override earlier ones.",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "themes": {
           "type": "array",
@@ -28,21 +52,35 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["name", "scopes"],
+            "required": [
+              "name",
+              "scopes"
+            ],
             "properties": {
-              "name": { "type": "string", "minLength": 1 },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
               "scopes": {
                 "type": "array",
                 "minItems": 1,
                 "items": {
                   "oneOf": [
-                    { "type": "string", "description": "A selector, matched exactly against one entry in a rule's selector list." },
+                    {
+                      "type": "string",
+                      "description": "A selector, matched exactly against one entry in a rule's selector list."
+                    },
                     {
                       "type": "object",
                       "additionalProperties": false,
-                      "required": ["selector"],
+                      "required": [
+                        "selector"
+                      ],
                       "properties": {
-                        "selector": { "type": "string", "minLength": 1 },
+                        "selector": {
+                          "type": "string",
+                          "minLength": 1
+                        },
                         "atRule": {
                           "type": "string",
                           "description": "Opt into declarations nested in a matching at-rule prelude, for example \"prefers-color-scheme: dark\". Conditional at-rules (@media, @supports, @container, @scope) are ignored without this. Grouping at-rules like @layer are always transparent, so you only name one to narrow a scope to it."
@@ -62,17 +100,38 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["fg", "bg", "min"],
+            "required": [
+              "fg",
+              "bg",
+              "min"
+            ],
             "properties": {
-              "fg": { "type": "string", "minLength": 1, "description": "A token name like --text, or a literal colour." },
-              "bg": { "type": "string", "minLength": 1, "description": "As fg, but it must resolve to an opaque colour." },
-              "min": { "type": "number", "exclusiveMinimum": 0, "description": "The floor this pair must clear. No default: you decide what the rule is." },
-              "label": { "type": "string", "description": "Why this pair matters. Printed with the result." },
+              "fg": {
+                "type": "string",
+                "minLength": 1,
+                "description": "A token name like --text, or a literal colour."
+              },
+              "bg": {
+                "type": "string",
+                "minLength": 1,
+                "description": "As fg, but it must resolve to an opaque colour."
+              },
+              "min": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "The floor this pair must clear. No default: you decide what the rule is."
+              },
+              "label": {
+                "type": "string",
+                "description": "Why this pair matters. Printed with the result."
+              },
               "themes": {
                 "type": "array",
                 "minItems": 1,
                 "description": "Limit the pair to these themes. Omit to check it in all of them.",
-                "items": { "type": "string" }
+                "items": {
+                  "type": "string"
+                }
               }
             }
           }
@@ -83,34 +142,86 @@
       "type": "object",
       "description": "Class names and literal values in markup, against a list you supply.",
       "additionalProperties": false,
-      "required": ["files"],
+      "required": [
+        "files"
+      ],
       "properties": {
         "files": {
           "type": "array",
           "minItems": 1,
           "description": "Markup to scan. A pattern matching nothing is a failure, never a clean run.",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "elements": {
           "type": "array",
           "minItems": 1,
           "description": "Element names to scan. Use [\"*\"] or omit for every element.",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "approvedClasses": {
           "type": "array",
           "description": "Every class name allowed to appear. Anything else is reported.",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "allowPrefixes": {
           "type": "array",
           "description": "Class name prefixes that are always allowed, for a deliberate escape hatch.",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "approvedValues": {
           "type": "array",
           "description": "Literal values allowed in inline styles. Everything else that looks like a colour or a length is reported.",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "judge": {
+      "type": "object",
+      "description": "A fresh-eyes review of your screenshots against your checklist, run by a model command you supply. Run with `taste-check judge`. Verdicts are advisory unless failOn says otherwise.",
+      "additionalProperties": false,
+      "required": [
+        "checklist",
+        "shots",
+        "command"
+      ],
+      "properties": {
+        "checklist": {
+          "type": "string",
+          "description": "A file of checklist lines. List items (\"- ...\" or \"1. ...\") are what gets judged; everything else is treated as prose. taste-check ships no checklist."
+        },
+        "shots": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Screenshots to hand the judge. Matching nothing is a failure: a judge with nothing to look at cannot fail, so it does not get to pass.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "shotCommand": {
+          "type": "string",
+          "description": "Optional command run before the judge to produce the screenshots. Runs from this config file's directory."
+        },
+        "command": {
+          "type": "string",
+          "description": "The model command. It receives the prompt on stdin and the image paths as arguments, and must reply with the documented JSON. Runs from this config file's directory."
+        },
+        "failOn": {
+          "enum": [
+            "never",
+            "fail"
+          ],
+          "default": "never",
+          "description": "Whether a \"fail\" verdict affects the exit code. Defaults to never: a model's verdict is not reproducible, so it does not gate a build unless you decide it should. Independent of this, a judge that could not run always exits 1."
         }
       }
     }
