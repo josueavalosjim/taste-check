@@ -3,10 +3,9 @@
  *
  * This is not a CSS parser. It is a walker that tracks brace depth and quote
  * state well enough to answer one question: for a given theme, what is the
- * final value of each `--token`? The same reasoning applies here as in the
- * markup scanner: a regex over a stylesheet looks like it works right up until
- * a value contains a brace or a selector contains a quote, and a check that
- * silently stops seeing declarations is worse than no check at all.
+ * final value of each `--token`? A regex over a stylesheet works right up
+ * until a value contains a brace or a selector contains a quote, at which
+ * point it stops seeing declarations and reports the file as fine.
  *
  * The cascade model is deliberately small and written down rather than
  * implied. Scopes are applied in the order the config lists them and the last

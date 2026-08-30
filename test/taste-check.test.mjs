@@ -332,7 +332,7 @@ describe('config validation', () => {
   test('an empty pair list is rejected', () => {
     const config = base();
     config.contrast.pairs = [];
-    assert.match(validate(config).join('\n'), /cannot fail/);
+    assert.match(validate(config).join('\n'), /nothing to measure/);
   });
 
   test('a missing min is rejected rather than defaulted to a WCAG number', () => {

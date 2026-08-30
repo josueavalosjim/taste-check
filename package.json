@@ -2,13 +2,32 @@
   "name": "taste-check",
   "version": "0.1.0",
   "description": "Deterministic design-system checks: WCAG contrast over your own tokens, and a one-off value linter over your own approved list. No palette, no class list, no opinions shipped.",
-  "type": "module",
+  "keywords": [
+    "accessibility",
+    "cli",
+    "contrast",
+    "design-system",
+    "design-tokens",
+    "lint",
+    "wcag"
+  ],
+  "homepage": "https://github.com/josueavalosjim/taste-check#readme",
+  "bugs": {
+    "url": "https://github.com/josueavalosjim/taste-check/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/josueavalosjim/taste-check.git"
+  },
   "license": "MIT",
+  "author": "Josue Avalos Jimenez",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./package.json": "./package.json"
+  },
   "bin": {
     "taste-check": "bin/taste-check.mjs"
-  },
-  "exports": {
-    ".": "./src/index.mjs"
   },
   "files": [
     "bin",
@@ -21,16 +40,7 @@
     "test": "node --test \"test/**/*.test.mjs\""
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
-  "keywords": [
-    "wcag",
-    "contrast",
-    "accessibility",
-    "design-tokens",
-    "design-system",
-    "lint",
-    "cli"
-  ],
   "dependencies": {}
 }

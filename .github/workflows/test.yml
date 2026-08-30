@@ -1,0 +1,32 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The versions package.json claims to support. Claiming a floor
+        # without running it there is the same as not checking at all.
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm test
+      # The fixture is the tool checking itself. Exit codes rather than
+      # output text, so a reworded message cannot quietly pass this.
+      - name: the clean fixture exits 0
+        run: node bin/taste-check.mjs --config test/fixture/pass.config.json
+      - name: the dirty fixture exits 1
+        run: |
+          if node bin/taste-check.mjs --config test/fixture/fail.config.json; then
+            echo "the dirty fixture passed, which means the checks are not firing"
+            exit 1
+          fi

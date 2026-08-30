@@ -2,10 +2,10 @@
  * Config loading and validation.
  *
  * Validation is strict on purpose, including rejecting keys it does not know.
- * A misspelled key that silently does nothing is the same bug as a check that
- * cannot fail: the run goes green and the config looks like it is working.
- * The same reasoning covers a pair naming a theme that does not exist, which
- * would otherwise quietly match no themes and never be measured.
+ * A misspelled `pairs` key leaves the contrast check with nothing to measure
+ * while the run still goes green, and the config still looks correct on the
+ * page. The same goes for a pair naming a theme that does not exist: it would
+ * match no themes and never be measured.
  */
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -22,7 +22,7 @@ function stringArray(value, where, errors, { required = true } = {}) {
     return [];
   }
   if (required && !value.length) {
-    errors.push(`${where} must not be empty. A check with nothing to check cannot fail.`);
+    errors.push(`${where} must not be empty. An empty list narrows the run to nothing.`);
   }
   return value;
 }
@@ -76,7 +76,7 @@ function validateContrast(contrast, errors) {
   }
 
   if (!Array.isArray(contrast.pairs) || !contrast.pairs.length) {
-    errors.push('contrast.pairs must be a non-empty array. A check with no pairs cannot fail.');
+    errors.push('contrast.pairs must be a non-empty array. With no pairs there is nothing to measure.');
     return;
   }
   contrast.pairs.forEach((pair, i) => {

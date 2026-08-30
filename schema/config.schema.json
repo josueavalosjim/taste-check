@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/josueavalos/taste-check/schema/config.schema.json",
+  "$id": "https://github.com/josueavalosjim/taste-check/schema/config.schema.json",
   "title": "taste-check config",
   "description": "Checks are driven entirely by this file. The tool ships no palette, no class list and no contrast floors.",
   "type": "object",

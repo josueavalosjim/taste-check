@@ -5,13 +5,13 @@
  * details are worth stating because they are the reason a naive contrast
  * checker disagrees with a browser:
  *
- *   1. Alpha is composited, not ignored. A token like `rgb(0 0 0 / 0.55)` is
+ *   1. Alpha is composited, not ignored. A token like `rgb(0 0 0 / 0.58)` is
  *      not a 21:1 black; it is whatever it becomes over the ground behind it.
  *      Measuring the raw value is measuring a colour that is never painted.
  *
- *   2. A value this parser does not understand is an error, never a skip.
- *      A skipped pair reports as a pass, and a check that cannot fail is worse
- *      than no check, because it gets quoted as evidence.
+ *   2. A value this parser does not understand is an error, not a skip. A
+ *      skipped pair would be reported as a pass, so an unsupported colour
+ *      format would quietly shrink the suite instead of failing it.
  *
  * Everything returns a result object rather than throwing, so the caller can
  * attach its own context (which token, which theme) to the failure.

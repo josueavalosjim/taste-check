@@ -6,10 +6,9 @@
  * pattern like `dir/*.ext`, and a double-star pattern matching any depth.
  * Brace expansion is not supported. List the patterns separately.
  *
- * A pattern that matches nothing is not this module's problem to report, but
- * it is always somebody's: every caller treats an empty match as a failure.
- * A run over zero files that prints "clean" is the exact failure mode this
- * whole tool exists to prevent.
+ * A pattern that matches nothing returns an empty list. Every caller treats
+ * that as a failure rather than a clean run, so a typo in a path is reported
+ * where it happened instead of showing up as zero findings.
  */
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';

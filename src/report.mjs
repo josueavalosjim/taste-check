@@ -1,10 +1,9 @@
 /**
  * Reporting.
  *
- * Passing samples are printed, not just failures. That is the whole point of
- * measuring: a pair sitting a fifth of a point over its floor is information
- * you want before someone nudges the background, not after. A report that only
- * speaks up when it is angry teaches you nothing about how close you are.
+ * Passing samples are printed too, with their ratios. Knowing a pair cleared
+ * 4.52 against a floor of 4.5 is worth more than knowing it cleared, because
+ * the next change to the background takes it under.
  */
 
 const pad = (text, width) => String(text).padStart(width);

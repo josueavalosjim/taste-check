@@ -4,7 +4,8 @@ Two deterministic checks for a design system you already have. It computes WCAG
 contrast ratios from your own custom properties, and flags class names and
 literal values that are not on your own approved list.
 
-It ships no palette, no class names and no contrast floors. You bring those.
+It has no opinion about which colours you use or which classes are allowed.
+You supply both.
 
 ```bash
 npx taste-check --config tastecheck.config.json
@@ -21,7 +22,7 @@ treatments FAILED
   FAIL  src/Promo.jsx:8 inline value "#ff0055" on <a> is a one-off. Use a token, or add it to approvedValues.
 ```
 
-Zero runtime dependencies. Node 20 or newer.
+Zero runtime dependencies. Node 22 or newer.
 
 ## Why this exists
 
@@ -34,14 +35,11 @@ Design systems drift in a specific way: a value gets hardcoded because the
 token did not quite fit, a class gets invented because nobody knew the approved
 one existed. Written rules do not stop it. A rule in a stylesheet comment is
 enforced by people re-reading stylesheets, and nobody re-reads a stylesheet
-while writing markup.
+while writing markup. So the rules get a check that runs instead.
 
-So the rules get a check that runs.
+## What counts as a failure
 
-## Three promises
-
-**A check that cannot fail is worse than no check.** It goes green and gets
-quoted as evidence. Everything below is a failure here, never a skip:
+Each of these exits 1 rather than passing quietly:
 
 - a pair naming a token that does not exist
 - a file pattern matching no files
@@ -49,14 +47,8 @@ quoted as evidence. Everything below is a failure here, never a skip:
 - a colour value the parser does not understand
 - an unknown key in the config, which is usually a typo doing nothing
 
-**Passes are printed with their margin.** A pair sitting a fifth of a point
-over its floor is worth knowing about before someone nudges the background, not
-after. A report that only speaks when it is angry teaches you nothing about how
-close you are.
-
-**No opinions are baked in.** `min` has no default. WCAG's 4.5 and 3.0 are
-documented here and never assumed in code, because the floor for a decorative
-hairline and the floor for body text are your call.
+A check that cannot fail is worse than no check, because it goes green and gets
+quoted as evidence.
 
 ## The contrast check
 
@@ -78,6 +70,13 @@ what.
   }
 }
 ```
+
+Passing pairs are printed with their ratio, not just failing ones, so you can
+see which pair is one background nudge away from dropping under its floor.
+
+`min` has no default. WCAG's 4.5 and 3.0 are documented here and never assumed
+in code, because the floor for a decorative hairline and the floor for body
+text are different decisions and both are yours.
 
 A theme is an ordered list of scopes and later scopes win, which is the cascade
 for equal specificity. Declarations inside an at-rule are ignored unless a
@@ -120,8 +119,7 @@ Give it your markup and your approved list.
 It reports two things: a class name that is not approved and matches no allowed
 prefix, and a literal colour or length hardcoded into an inline `style`.
 
-The parsing is a scanner rather than a regex, and that is the whole reason it
-works. The obvious implementation is `/<a\b[^>]*?className="([^"]*)"/`, which
+The parsing is a scanner, not a regex, and that is the whole reason it works. The obvious implementation is `/<a\b[^>]*?className="([^"]*)"/`, which
 finds almost nothing while looking like it passes:
 
 - `[^>]*` cannot cross `onClick={() => x}`. It stops at the arrow's own `>`,
@@ -131,9 +129,9 @@ finds almost nothing while looking like it passes:
 
 So tags are found by walking the source with quote and brace depth tracked, and
 class names are collected from every string literal inside a `className`
-expression. A ternary contributes both of its branches on purpose. The question
-is whether a class can appear at all, and a false positive costs a
-conversation while a false negative ships the bug.
+expression. A ternary contributes both of its branches on purpose, because the
+question is whether a class can appear at all. Over-reporting is the safer
+direction to be wrong in.
 
 Template literal holes are read into rather than blanked, so a class written
 inside `` `card ${on ? 'card--on' : ''}` `` is seen.
@@ -175,12 +173,12 @@ Read this before trusting a green run.
 **It reads tokens, not a rendered page.** This is the real limit. The check it
 was ported from ran in a browser and read colours off `getComputedStyle`,
 because a token file cannot tell you what is actually painted behind an
-element. A translucent overlay, an ancestor background, a colour set inline by
-a component: none of that is visible here. What this gives you is that the
+element. An overlay, an ancestor background or a colour set inline by a
+component are all invisible here. What this gives you is that the
 values in your token file relate to each other the way you said they should. It
 does not prove what a visitor sees.
 
-**Colour formats are limited.** Hex in 3, 4, 6 and 8 digits, `rgb()` and
+**Only some colour formats parse.** Hex in 3, 4, 6 and 8 digits, `rgb()` and
 `rgba()` in both the comma and the space syntax, and `white` / `black` /
 `transparent`. `hsl()`, `oklch()` and `color-mix()` are not parsed yet, and a
 value it cannot parse is a failure rather than a skip, so you will hear about
@@ -190,7 +188,7 @@ it immediately.
 them. If your tokens rely on `.a.b` beating `.b`, list the scopes in the order
 you want.
 
-**It reads markup, not a component graph.** Classes applied by a helper
+**Component indirection is invisible.** Classes applied by a helper
 function, a `clsx` call importing names from elsewhere, or CSS-in-JS are
 invisible to it.
 
@@ -205,8 +203,8 @@ and a checklist, and nothing else. Judging in the same context that produced
 the work is unreliable, because the reasoning that justified a choice is still
 sitting there to justify it again. The plan is a plugin hook that takes your
 screenshot command and your checklist file and reports back in the same format
-as the checks above. The checklist stays yours. Shipping one would be shipping
-somebody else's taste, which is the thing this tool is built to avoid.
+as the checks above. The checklist stays yours: a shipped one would just be
+somebody else's taste.
 
 **A runtime mode**, closing the gap named above by measuring `getComputedStyle`
 in a real browser, as an optional peer dependency so the core stays free of one.
@@ -221,12 +219,10 @@ in a real browser, as an optional peer dependency so the core stays free of one.
 npm test
 ```
 
-The suite is built around proving the checks can fail. Asserting that a clean
-fixture passes is nearly worthless, because a checker with its scanner deleted
-passes a clean fixture too. So it also plants violations into a fixture that
-was passing a moment earlier and demands each one is caught: a token darkened
-below its floor, an unapproved class added to a clean file, a class buried in a
-template literal hole, and a file pattern pointed at nothing.
+34 tests. Most of them plant a violation into a fixture that was passing a
+moment earlier and demand it gets caught: a token darkened below its floor, an
+unapproved class added to a clean file, a class buried in a template literal
+hole, a file pattern pointed at nothing.
 
 ## License
 
