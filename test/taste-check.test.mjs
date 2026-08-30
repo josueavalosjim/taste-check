@@ -321,23 +321,26 @@ describe('the known-bad fixture', () => {
     assert.ok(contrast.problems.some((p) => p.includes('--veil') && p.includes('translucent')));
   });
 
-  test('an unapproved class inside a ternary is caught', () => {
-    assert.ok(
-      treatments.failures.some((f) => f.includes('bad.jsx:7') && f.includes('"promo-huge"')),
-      treatments.failures.join('\n'),
-    );
+  test('an unapproved class inside a ternary is caught, with its location', () => {
+    const found = treatments.failures.find((f) => f.message.includes('"promo-huge"'));
+    assert.ok(found, JSON.stringify(treatments.failures, null, 1));
+    assert.equal(found.file, 'markup/bad.jsx');
+    assert.equal(found.line, 7);
+    assert.equal(found.rule, 'treatments/unapproved-class');
   });
 
   test('one-off values are caught in both style syntaxes', () => {
-    const text = treatments.failures.join('\n');
     for (const value of ['#ff0055', '13px', '7px']) {
-      assert.ok(text.includes(`"${value}"`), `${value} should be reported`);
+      const found = treatments.failures.find((f) => f.message.includes(`"${value}"`));
+      assert.ok(found, `${value} should be reported`);
+      assert.equal(found.rule, 'treatments/one-off-value');
+      assert.ok(found.line > 0, `${value} should carry a line`);
     }
   });
 
   test('the clean file in the same glob produces nothing', () => {
     assert.equal(
-      treatments.failures.filter((f) => f.includes('ok.jsx')).length,
+      treatments.failures.filter((f) => f.file.includes('ok.jsx')).length,
       0,
       'ok.jsx must not produce false positives',
     );
@@ -370,7 +373,7 @@ describe('planted violations', () => {
     const results = run(config, dir);
     const failures = byName(results, 'treatments').failures;
     assert.ok(
-      failures.some((f) => f.includes('"sneaky"')),
+      failures.some((f) => f.message.includes('"sneaky"')),
       `the planted class was not caught: ${failures.join('\n') || '(no failures at all)'}`,
     );
   });
@@ -389,8 +392,8 @@ describe('planted violations', () => {
     const { config } = loadConfig('pass.config.json');
     const failures = byName(run(config, dir), 'treatments').failures;
     assert.ok(
-      failures.some((f) => f.includes('"buried"')),
-      `a class inside a template hole was not seen: ${failures.join('\n') || '(no failures at all)'}`,
+      failures.some((f) => f.message.includes('"buried"')),
+      `a class inside a template hole was not seen: ${JSON.stringify(failures) || '(no failures at all)'}`,
     );
   });
 

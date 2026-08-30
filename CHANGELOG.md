@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.6.0
+
+**`--format sarif`.** SARIF 2.1.0 on stdout, for a code scanning tab. Works on
+all three commands. `--json` still works and is now an alias for
+`--format json`.
+
+The part worth doing carefully was locations, because a format conversion that
+hangs every annotation off line 1 of the config is valid SARIF and useless.
+Every finding points at the line you would edit: a class at the markup, a
+contrast failure at the line in the token file where the foreground is
+declared, a judge verdict at the line in the checklist.
+
+Fingerprints are keyed to the content of a line rather than its number, so
+adding an import at the top of a file does not close every alert below it and
+open a new one. Each finding also carries an identity separate from its
+message, so two one-off values on the same line stay two alerts, and rewording
+a message later does not silently reopen everything.
+
+Levels follow the exit code: errors gate, judge verdicts are notes, or warnings
+under `failOn`.
+
+Internally, treatment findings are now objects with a file, line, rule and
+subject rather than pre-formatted strings, and contrast samples carry the
+declaration they came from.
+
 ## 0.5.2
 
 Border colours are measured against what is outside the element rather than

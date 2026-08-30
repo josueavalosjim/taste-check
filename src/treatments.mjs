@@ -202,20 +202,29 @@ export function runTreatments(config, cwd) {
 
   for (const file of files) {
     const source = readFileSync(file, 'utf8');
-    const where = (at) => `${label(file, cwd)}:${lineOf(source, at)}`;
+    const where = (at) => ({ file: label(file, cwd), line: lineOf(source, at) });
 
     for (const tag of openTags(source, elements)) {
       for (const { name, at } of classesOf(tag.attrs)) {
         if (approved.has(name)) continue;
         if (allowPrefixes.some((p) => name.startsWith(p))) continue;
-        failures.push(`${where(tag.start + at)} class "${name}" on <${tag.name}> is not approved`);
+        failures.push({
+          rule: 'treatments/unapproved-class',
+          ...where(tag.start + at),
+          subject: name,
+          message: `class "${name}" on <${tag.name}> is not approved`,
+        });
       }
       for (const { text, at } of inlineValues(tag.attrs)) {
         if (allowedValues.has(text.toLowerCase())) continue;
-        failures.push(
-          `${where(tag.start + at)} inline value "${text}" on <${tag.name}> is a one-off. ` +
+        failures.push({
+          rule: 'treatments/one-off-value',
+          ...where(tag.start + at),
+          subject: text,
+          message:
+            `inline value "${text}" on <${tag.name}> is a one-off. ` +
             `Use a token, or add it to approvedValues.`,
-        );
+        });
       }
     }
   }

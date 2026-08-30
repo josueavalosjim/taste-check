@@ -7,9 +7,12 @@
  * exist, or scopes a pair to a theme that is not defined is a failure here,
  * not a quiet skip.
  */
+import { readFileSync } from 'node:fs';
+
 import { load } from '../src/config.mjs';
 import { judge, run, runtime } from '../src/index.mjs';
 import { failed, toJson, toText } from '../src/report.mjs';
+import { toSarif } from '../src/sarif.mjs';
 
 const USAGE = `taste-check
 
@@ -20,11 +23,20 @@ const USAGE = `taste-check
 Options:
   -c, --config <path>   Config file (default: tastecheck.config.json)
       --only <name>     Run one check: contrast or treatments
-      --json            Machine-readable output
+      --format <kind>   text (default), json, or sarif
+      --json            Alias for --format json
   -h, --help            This
       --version         Print the version
 
 Exit code is 1 if any check fails, 0 if every check ran and passed.
+
+--format sarif writes SARIF 2.1.0 on stdout, for a code scanning tab:
+
+  taste-check --format sarif > taste-check.sarif
+
+Every finding points at the line you would edit to change it. A class points
+at the markup, a contrast failure at the line in your token file where the
+foreground is declared, a judge verdict at the line in your checklist.
 
 runtime is a separate command because it needs a browser and a server that
 is already up. It measures what is actually painted, compositing every
@@ -38,7 +50,7 @@ at all is a different question: no screenshots, a command that failed, or
 a reply that skipped a checklist line all exit 1 either way.`;
 
 function parseArgs(argv) {
-  const options = { config: 'tastecheck.config.json', only: null, json: false, command: 'check' };
+  const options = { config: 'tastecheck.config.json', only: null, format: 'text', command: 'check' };
   // One positional, and only in first position, so a stray argument is an
   // error rather than something silently ignored.
   if (argv[0] === 'judge' || argv[0] === 'runtime') {
@@ -61,7 +73,13 @@ function parseArgs(argv) {
       if (options.only !== 'contrast' && options.only !== 'treatments') {
         throw new Error(`--only takes "contrast" or "treatments", not "${options.only}"`);
       }
-    } else if (arg === '--json') options.json = true;
+    } else if (arg === '--json') options.format = 'json';
+    else if (arg === '--format') {
+      options.format = next();
+      if (!['text', 'json', 'sarif'].includes(options.format)) {
+        throw new Error(`--format takes text, json or sarif, not "${options.format}"`);
+      }
+    }
     else if (!arg.startsWith('-')) throw new Error(`unknown command "${arg}"`);
     else throw new Error(`unknown option "${arg}"`);
   }
@@ -85,11 +103,7 @@ if (options.help) {
   process.exit(0);
 }
 if (options.version) {
-  const { version } = JSON.parse(
-    await import('node:fs').then((fs) =>
-      fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
-    ),
-  );
+  const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
   console.log(version);
   process.exit(0);
 }
@@ -118,5 +132,12 @@ if (!results.length) {
   die(`nothing to run. ${options.config} defines no ${options.only ?? 'contrast or treatments'} check.`);
 }
 
-console.log(options.json ? toJson(results) : toText(results));
+if (options.format === 'sarif') {
+  const { version } = JSON.parse(
+    readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+  );
+  console.log(toSarif(results, { version, configFile: options.config, configDir: loaded.dir }));
+} else {
+  console.log(options.format === 'json' ? toJson(results) : toText(results));
+}
 process.exit(failed(results) ? 1 : 0);

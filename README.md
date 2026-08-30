@@ -343,12 +343,51 @@ taste-check judge [options]   Ask a fresh-eyes judge about your screenshots
 
   -c, --config <path>   Config file (default: tastecheck.config.json)
       --only <name>     Run one check: contrast or treatments
-      --json            Machine-readable output
+      --format <kind>   text (default), json, or sarif
+      --json            Alias for --format json
       --version         Print the version
 ```
 
 Exit code is 1 if any check fails, 0 if every check ran and passed. The judge
 plays by the rules in its own section above.
+
+## SARIF
+
+```bash
+taste-check --format sarif > taste-check.sarif
+```
+
+Works on any of the three commands, and drops findings into a code scanning tab
+instead of a log nobody opens.
+
+```yaml
+- run: npx taste-check --format sarif > taste-check.sarif
+  continue-on-error: true
+- uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: taste-check.sarif
+```
+
+`continue-on-error` because the step exits 1 when something fails, and you
+still want the findings uploaded when it does.
+
+Two things make this worth having over a log.
+
+**Every finding points at the line you would edit.** A class points at the
+markup. A contrast failure points at the line in your token file where the
+foreground is declared, which is the half of a pair you usually end up moving.
+A judge verdict points at the line in your checklist. Findings with no file
+behind them, like a browser that would not start, point at the config, because
+that is where the rule was written.
+
+**Fingerprints are keyed to the content of the line, not its number.** Add an
+import at the top of a file and every finding below it stays the same alert
+rather than closing and reopening as a new one. Without that a code scanning
+tab fills with churn and people stop reading it.
+
+Levels follow the same rule the exit code does. Everything that gates the build
+is an `error`. A judge verdict is a `note`, or a `warning` if you set
+`failOn`, because it is an opinion either way.
 
 ## Where it sits next to other tools
 
@@ -413,9 +452,6 @@ invisible to it.
 Not built. Written down so the shape is clear.
 
 **YAML configs**, once there is a reason to take on a parser.
-
-**SARIF output**, so findings land in a code scanning tab rather than only in
-a log.
 
 **A way to run the judge from an agent skill**, not only from a shell.
 

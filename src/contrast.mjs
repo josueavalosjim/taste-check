@@ -18,7 +18,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { contrastRatio, isOpaque, parseColor } from './color.mjs';
-import { parseDeclarations, resolveScopes, resolveValue, unmatchedScopes } from './css.mjs';
+import { lineAt, parseDeclarations, resolveScopes, resolveValue, unmatchedScopes } from './css.mjs';
 import { expand, label } from './files.mjs';
 
 /** A token name, or a literal colour, resolved to rgba for one theme. */
@@ -28,7 +28,7 @@ function side(spec, table, theme) {
     if (!resolved.ok) return { ok: false, reason: `theme "${theme}": ${resolved.reason}` };
     const color = parseColor(resolved.value);
     if (!color.ok) return { ok: false, reason: `theme "${theme}": ${spec} is ${color.reason}` };
-    return { ok: true, rgba: color.rgba };
+    return { ok: true, rgba: color.rgba, at: resolved.decl };
   }
   const color = parseColor(spec);
   if (!color.ok) return { ok: false, reason: `theme "${theme}": ${color.reason}` };
@@ -49,7 +49,14 @@ export function runContrast(config, cwd) {
   // One declaration list across every token file, in the order they were
   // listed, so a later file overriding an earlier one behaves like a later
   // @import would.
-  const decls = files.flatMap((file) => parseDeclarations(readFileSync(file, 'utf8')));
+  // Each declaration remembers where it was written. A contrast failure is
+  // otherwise a number with nowhere to go, and the line you would edit to fix
+  // it is the line the token is declared on.
+  const decls = files.flatMap((file) => {
+    const source = readFileSync(file, 'utf8');
+    const where = { file: label(file, cwd), };
+    return parseDeclarations(source).map((d) => ({ ...d, ...where, line: lineAt(source, d.index) }));
+  });
 
   for (const theme of themes) {
     const table = resolveScopes(decls, theme.scopes);
@@ -111,6 +118,9 @@ export function runContrast(config, cwd) {
         ratio,
         min: pair.min,
         pass: ratio >= pair.min,
+        // Point at the foreground: it is the half a contrast failure is
+        // usually fixed by moving.
+        at: fg.at ? { file: fg.at.file, line: fg.at.line } : null,
       });
     }
   }

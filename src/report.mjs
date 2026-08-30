@@ -28,7 +28,7 @@ function contrastLines(result) {
 
 function treatmentLines(result) {
   return [
-    ...result.failures.map((text) => ({ level: 'fail', text })),
+    ...result.failures.map((f) => ({ level: 'fail', text: `${f.file}:${f.line} ${f.message}` })),
     ...result.problems.map((text) => ({ level: 'error', text })),
   ];
 }

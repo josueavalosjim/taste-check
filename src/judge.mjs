@@ -86,10 +86,17 @@ CHECKLIST:
  * returns a verdict on your explanatory paragraph.
  */
 export function checklistLines(text) {
-  return text
-    .split('\n')
-    .filter((l) => /^\s*(?:[-*+]|\d+[.)])\s+\S/.test(l))
-    .map((l) => l.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, '').trim());
+  return checklistEntries(text).map((e) => e.text);
+}
+
+/** The same, keeping the line each one was written on so a finding can point at it. */
+export function checklistEntries(text) {
+  const entries = [];
+  text.split('\n').forEach((raw, i) => {
+    if (!/^\s*(?:[-*+]|\d+[.)])\s+\S/.test(raw)) return;
+    entries.push({ text: raw.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, '').trim(), line: i + 1 });
+  });
+  return entries;
 }
 
 /**
@@ -169,13 +176,15 @@ export function runJudge(config, cwd) {
     return { name: 'judge', findings, problems, failOn, summary: '' };
   }
 
-  let lines;
+  let entries;
   try {
-    lines = checklistLines(readFileSync(resolve(cwd, checklistPath), 'utf8'));
+    entries = checklistEntries(readFileSync(resolve(cwd, checklistPath), 'utf8'));
   } catch {
     problems.push(`cannot read the checklist at ${checklistPath}`);
     return { name: 'judge', findings, problems, failOn, summary: '' };
   }
+  const lines = entries.map((e) => e.text);
+  const lineNumbers = new Map(entries.map((e) => [e.text, e.line]));
   if (!lines.length) {
     problems.push(
       `${checklistPath} has no checklist lines in it. Lines to judge are list ` +
@@ -219,7 +228,12 @@ export function runJudge(config, cwd) {
       continue;
     }
     answered.add(f.line);
-    findings.push({ line: f.line, verdict: f.verdict, why: (f.why ?? '').trim() });
+    findings.push({
+      line: f.line,
+      verdict: f.verdict,
+      why: (f.why ?? '').trim(),
+      at: { file: checklistPath, line: lineNumbers.get(f.line) },
+    });
   }
   for (const line of lines) {
     if (!answered.has(line)) problems.push(`the judge did not answer "${line}"`);
