@@ -4,7 +4,8 @@ Design review in CI, with a line down the middle of it.
 
 Some of design review is measurable. Contrast ratios, values that should have
 been tokens, class names nobody approved. taste-check measures those and fails
-your build on them.
+your build on them, either from your token file or from a page it renders in a
+real browser.
 
 The rest is judgment, and it cannot be measured. For that it sends your
 screenshots and your checklist to a model, and reports what comes back as an
@@ -180,6 +181,60 @@ direction to be wrong in.
 Template literal holes are read into rather than blanked, so a class written
 inside `` `card ${on ? 'card--on' : ''}` `` is seen.
 
+## Measuring the rendered page
+
+The contrast check above reads your token file, which tells you what a colour
+is declared to be. `taste-check runtime` opens the page and reads what is
+actually painted.
+
+```json
+{
+  "runtime": {
+    "url": "http://localhost:3000",
+    "states": [
+      { "name": "light" },
+      { "name": "dark", "before": "localStorage.setItem('theme', 'dark')" }
+    ],
+    "targets": [
+      { "selector": ".caption", "prop": "color", "min": 4.5 },
+      { "selector": ".panel", "prop": "borderTopColor", "min": 3.0 },
+      { "selector": ".row.is-selected", "prop": "backgroundColor", "min": 1.25, "againstParent": true }
+    ]
+  }
+}
+```
+
+```bash
+taste-check runtime
+```
+
+It launches a headless Chromium, or connects to one you already have if you
+give it an `endpoint`, and it never closes a browser it did not start. There is
+no dependency for this. The Chrome DevTools Protocol is JSON over the WebSocket
+Node already ships, and the part of it needed here is two methods.
+
+Two things this does that reading tokens cannot.
+
+**It composites the whole background stack.** White text on a 75% black scrim
+over a near-white page measures 10.57:1. Stop at the first opaque ancestor, the
+way the check this was ported from did, and you measure the white against the
+page instead and get 1.04:1. That is a failure the design has not earned, and
+with the colours the other way round the same shortcut hands you a pass it has
+not earned either.
+
+**It can measure a state.** `before` runs on every navigation ahead of the
+page's own scripts, which is where a theme belongs because the page reads it at
+boot. `after` runs once there is a document, for opening a panel or focusing a
+field. Each state's setup is removed before the next one, so they cannot leak.
+
+Use `againstParent` when the thing being measured is a fill rather than a
+foreground. A selected row with its own background measured against itself
+scores 1.00, which is a pass that means nothing.
+
+A selector that matches nothing is a failure. So is a border colour on an edge
+with no width: you asked for the contrast of something that is not being drawn,
+and the question is wrong rather than the answer being zero.
+
 ## The judge
 
 Everything above measures. This asks the question a measurement cannot: not
@@ -266,9 +321,15 @@ from anywhere.
 | `judge.shotCommand` | Optional command run first to produce those screenshots. |
 | `judge.command` | The model command. Prompt on stdin, image paths as arguments. |
 | `judge.failOn` | `"never"` (default) or `"fail"`. Whether a verdict blocks. |
+| `runtime.url` | The page to measure. A `file://` URL works. |
+| `runtime.endpoint` | An existing CDP endpoint. Given one, taste-check connects rather than launching, and never closes a browser it did not start. |
+| `runtime.browserPath` | Path to a Chromium. Falls back to `CHROME_PATH`, then the usual locations. |
+| `runtime.states[]` | `before` runs ahead of the page's scripts, `after` once loaded, `waitFor` is a selector. |
+| `runtime.targets[]` | `selector`, `prop`, `min`, and `againstParent` when measuring a fill. |
 
 ```
-taste-check [options]         Run the deterministic checks
+taste-check [options]         Run the deterministic checks over your files
+taste-check runtime [options] Measure contrast on a rendered page
 taste-check judge [options]   Ask a fresh-eyes judge about your screenshots
 
   -c, --config <path>   Config file (default: tastecheck.config.json)
@@ -341,12 +402,6 @@ invisible to it.
 ## Future directions
 
 Not built. Written down so the shape is clear.
-
-**A runtime mode**, closing the gap named above by measuring `getComputedStyle`
-in a real browser, as an optional peer dependency so the core stays free of
-one. This is the one that matters most. An advisory judge is only worth
-listening to if the measured half beside it is genuinely measured, and reading
-a token file is the weaker version of that.
 
 **YAML configs**, once there is a reason to take on a parser.
 

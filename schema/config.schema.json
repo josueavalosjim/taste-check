@@ -19,6 +19,11 @@
     },
     {
       "required": [
+        "runtime"
+      ]
+    },
+    {
+      "required": [
         "judge"
       ]
     }
@@ -222,6 +227,100 @@
           ],
           "default": "never",
           "description": "Whether a \"fail\" verdict affects the exit code. Defaults to never: a model's verdict is not reproducible, so it does not gate a build unless you decide it should. Independent of this, a judge that could not run always exits 1."
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "description": "Contrast measured on a rendered page rather than derived from a token file. Run with `taste-check runtime`. Needs a Chromium and a server that is already up.",
+      "additionalProperties": false,
+      "required": [
+        "url",
+        "targets"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "The page to measure. A file:// URL works."
+        },
+        "endpoint": {
+          "type": "string",
+          "description": "An existing CDP endpoint, for example http://127.0.0.1:9222. Given this, taste-check connects instead of launching, and never closes a browser it did not start."
+        },
+        "browserPath": {
+          "type": "string",
+          "description": "Path to a Chromium. Falls back to CHROME_PATH, then the usual locations for the platform."
+        },
+        "timeout": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Milliseconds to wait for the browser and for each page operation. Default 15000."
+        },
+        "states": {
+          "type": "array",
+          "minItems": 1,
+          "description": "States to measure the page in. Omit for a single default state.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "before": {
+                "type": "string",
+                "description": "JavaScript run on every navigation ahead of the page's own scripts. Where a theme goes, because the page reads it at boot."
+              },
+              "after": {
+                "type": "string",
+                "description": "JavaScript run once the page has loaded. For opening a panel or focusing a field."
+              },
+              "waitFor": {
+                "type": "string",
+                "description": "A selector to wait for before measuring."
+              }
+            }
+          }
+        },
+        "targets": {
+          "type": "array",
+          "minItems": 1,
+          "description": "What to measure. A selector matching nothing is a failure, as is a border colour on an edge with no width.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "selector",
+              "prop",
+              "min"
+            ],
+            "properties": {
+              "selector": {
+                "type": "string",
+                "minLength": 1
+              },
+              "prop": {
+                "type": "string",
+                "minLength": 1,
+                "description": "A computed style property carrying the colour, for example color or borderTopColor."
+              },
+              "min": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "label": {
+                "type": "string"
+              },
+              "againstParent": {
+                "type": "boolean",
+                "description": "Measure against what is behind the element rather than its own background. Use when the thing being measured is a fill: measuring a fill against itself scores 1.00 and means nothing."
+              }
+            }
+          }
         }
       }
     }

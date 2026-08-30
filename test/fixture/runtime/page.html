@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>runtime fixture</title>
+<style>
+  :root { --page: #fbfbfa; --ink: rgba(0, 0, 0, 0.62); --rule: rgba(0, 0, 0, 0.30); }
+  :root[data-theme="dark"] { --page: #14171c; --ink: rgba(255, 255, 255, 0.70); }
+  body { background: var(--page); margin: 0; font: 16px/1.5 system-ui, sans-serif; }
+  .caption { color: var(--ink); }
+  .divider { border: 0; border-top: 1px solid var(--rule); }
+  /* No width, so there is no edge to measure even though a colour is set. */
+  .no-edge { border-top: 0 solid var(--rule); }
+
+  /* The case a token file cannot see: white text on a dark scrim that is
+     itself sitting on a light page. Reading tokens, or stopping at the first
+     opaque ancestor, both measure the white against the light page. */
+  .scrim { background: rgba(0, 0, 0, 0.75); padding: 16px; }
+  .on-scrim { color: #ffffff; }
+
+  /* The inverse, where the same shortcut produces a false pass. */
+  .veil { background: rgba(255, 255, 255, 0.92); padding: 16px; }
+  .on-veil { color: rgba(255, 255, 255, 0.95); }
+
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+  <p class="caption">a caption</p>
+  <hr class="divider">
+  <hr class="no-edge">
+  <div class="scrim"><p class="on-scrim">white on a dark scrim over a light page</p></div>
+  <div class="veil"><p class="on-veil">white on a light veil, which is unreadable</p></div>
+  <p class="hidden">not rendered</p>
+</body>
+</html>

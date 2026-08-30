@@ -52,7 +52,7 @@ function judgeLines(result) {
 }
 
 export const linesFor = (result) => {
-  if (result.name === 'contrast') return contrastLines(result);
+  if (result.name === 'contrast' || result.name === 'runtime') return contrastLines(result);
   if (result.name === 'judge') return judgeLines(result);
   return treatmentLines(result);
 };
@@ -79,7 +79,9 @@ export function toText(results) {
       out.push(`${result.name} ok, ${result.summary}`);
       // A clean contrast run still shows its margins. Nothing else in the
       // report tells you which pair is one nudge away from failing.
-      if (result.name === 'contrast') for (const l of lines) out.push(`  ${MARK.ok}${l.text}`);
+      if (result.name === 'contrast' || result.name === 'runtime') {
+        for (const l of lines) out.push(`  ${MARK.ok}${l.text}`);
+      }
       out.push('');
       continue;
     }

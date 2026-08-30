@@ -8,12 +8,13 @@
  * not a quiet skip.
  */
 import { load } from '../src/config.mjs';
-import { judge, run } from '../src/index.mjs';
+import { judge, run, runtime } from '../src/index.mjs';
 import { failed, toJson, toText } from '../src/report.mjs';
 
 const USAGE = `taste-check
 
-  taste-check [options]         Run the deterministic checks
+  taste-check [options]         Run the deterministic checks over your files
+  taste-check runtime [options] Measure contrast on a rendered page
   taste-check judge [options]   Ask a fresh-eyes judge about your screenshots
 
 Options:
@@ -25,6 +26,11 @@ Options:
 
 Exit code is 1 if any check fails, 0 if every check ran and passed.
 
+runtime is a separate command because it needs a browser and a server that
+is already up. It measures what is actually painted, compositing every
+background layer behind an element rather than stopping at the first opaque
+one, and it can put the page into a state first.
+
 The judge is a separate command because it runs a model, and a model's
 verdict is not reproducible. Its verdicts print as notes and do not affect
 the exit code unless judge.failOn is set to "fail". Whether the judge ran
@@ -35,8 +41,8 @@ function parseArgs(argv) {
   const options = { config: 'tastecheck.config.json', only: null, json: false, command: 'check' };
   // One positional, and only in first position, so a stray argument is an
   // error rather than something silently ignored.
-  if (argv[0] === 'judge') {
-    options.command = 'judge';
+  if (argv[0] === 'judge' || argv[0] === 'runtime') {
+    options.command = argv[0];
     argv = argv.slice(1);
   }
   for (let i = 0; i < argv.length; i += 1) {
@@ -95,18 +101,18 @@ if (!loaded.ok) {
   process.exit(1);
 }
 
-if (options.command === 'judge' && options.only) {
-  die('--only applies to the deterministic checks, not to judge');
+if (options.command !== 'check' && options.only) {
+  die(`--only applies to the deterministic checks, not to ${options.command}`);
 }
 
-if (options.command === 'judge' && !loaded.config.judge) {
-  die(`${options.config} defines no "judge" block.`);
+if (options.command !== 'check' && !loaded.config[options.command]) {
+  die(`${options.config} defines no "${options.command}" block.`);
 }
 
-const results =
-  options.command === 'judge'
-    ? judge(loaded.config, loaded.dir)
-    : run(loaded.config, loaded.dir, { only: options.only });
+let results;
+if (options.command === 'judge') results = judge(loaded.config, loaded.dir);
+else if (options.command === 'runtime') results = await runtime(loaded.config, loaded.dir);
+else results = run(loaded.config, loaded.dir, { only: options.only });
 
 if (!results.length) {
   die(`nothing to run. ${options.config} defines no ${options.only ?? 'contrast or treatments'} check.`);

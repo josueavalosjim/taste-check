@@ -151,14 +151,88 @@ function validateJudge(judge, errors) {
   }
 }
 
+function validateRuntime(runtime, errors) {
+  rejectUnknown(
+    runtime,
+    ['url', 'endpoint', 'browserPath', 'timeout', 'states', 'targets'],
+    'runtime',
+    errors,
+  );
+  if (typeof runtime.url !== 'string' || !runtime.url) {
+    errors.push('runtime.url must be the page to measure');
+  }
+  for (const key of ['endpoint', 'browserPath']) {
+    if (runtime[key] !== undefined && (typeof runtime[key] !== 'string' || !runtime[key])) {
+      errors.push(`runtime.${key} must be a non-empty string`);
+    }
+  }
+  if (runtime.timeout !== undefined && (typeof runtime.timeout !== 'number' || runtime.timeout <= 0)) {
+    errors.push('runtime.timeout must be a positive number of milliseconds');
+  }
+  if (runtime.states !== undefined) {
+    if (!Array.isArray(runtime.states) || !runtime.states.length) {
+      errors.push('runtime.states must be a non-empty array. Omit it for a single default state.');
+    } else {
+      const names = new Set();
+      runtime.states.forEach((state, i) => {
+        const where = `runtime.states[${i}]`;
+        if (!isPlainObject(state)) {
+          errors.push(`${where} must be an object`);
+          return;
+        }
+        rejectUnknown(state, ['name', 'before', 'after', 'waitFor'], where, errors);
+        if (typeof state.name !== 'string' || !state.name) errors.push(`${where}.name must be a string`);
+        else if (names.has(state.name)) errors.push(`${where}.name "${state.name}" is used twice`);
+        else names.add(state.name);
+        for (const key of ['before', 'after', 'waitFor']) {
+          if (state[key] !== undefined && typeof state[key] !== 'string') {
+            errors.push(`${where}.${key} must be a string`);
+          }
+        }
+      });
+    }
+  }
+  if (!Array.isArray(runtime.targets) || !runtime.targets.length) {
+    errors.push('runtime.targets must be a non-empty array. A check with no targets cannot fail.');
+    return;
+  }
+  runtime.targets.forEach((target, i) => {
+    const where = `runtime.targets[${i}]`;
+    if (!isPlainObject(target)) {
+      errors.push(`${where} must be an object`);
+      return;
+    }
+    rejectUnknown(target, ['selector', 'prop', 'min', 'label', 'againstParent'], where, errors);
+    for (const key of ['selector', 'prop']) {
+      if (typeof target[key] !== 'string' || !target[key]) {
+        errors.push(`${where}.${key} must be a non-empty string`);
+      }
+    }
+    if (typeof target.min !== 'number' || !Number.isFinite(target.min) || target.min <= 0) {
+      errors.push(`${where}.min must be a positive number`);
+    }
+    if (target.label !== undefined && typeof target.label !== 'string') {
+      errors.push(`${where}.label must be a string`);
+    }
+    if (target.againstParent !== undefined && typeof target.againstParent !== 'boolean') {
+      errors.push(`${where}.againstParent must be a boolean`);
+    }
+  });
+}
+
 /** Validate a parsed config, returning a list of human-readable problems. */
 export function validate(config) {
   const errors = [];
   if (!isPlainObject(config)) return ['the config must be a JSON object'];
-  rejectUnknown(config, ['$schema', 'contrast', 'treatments', 'judge'], 'the config', errors);
+  rejectUnknown(config, ['$schema', 'contrast', 'treatments', 'judge', 'runtime'], 'the config', errors);
 
-  if (config.contrast === undefined && config.treatments === undefined && config.judge === undefined) {
-    errors.push('the config must define at least one of "contrast", "treatments" or "judge"');
+  if (
+    config.contrast === undefined &&
+    config.treatments === undefined &&
+    config.judge === undefined &&
+    config.runtime === undefined
+  ) {
+    errors.push('the config must define at least one of "contrast", "treatments", "runtime" or "judge"');
   }
   if (config.contrast !== undefined) {
     if (isPlainObject(config.contrast)) validateContrast(config.contrast, errors);
@@ -171,6 +245,10 @@ export function validate(config) {
   if (config.judge !== undefined) {
     if (isPlainObject(config.judge)) validateJudge(config.judge, errors);
     else errors.push('judge must be an object');
+  }
+  if (config.runtime !== undefined) {
+    if (isPlainObject(config.runtime)) validateRuntime(config.runtime, errors);
+    else errors.push('runtime must be an object');
   }
   return errors;
 }

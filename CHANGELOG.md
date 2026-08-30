@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.5.0
+
+**`taste-check runtime` measures a rendered page.** It opens the URL in a
+headless Chromium, or connects to a browser you already have, and reads colours
+off `getComputedStyle` rather than deriving them from a token file. It closes
+only a browser it started.
+
+No dependency was added for this. The Chrome DevTools Protocol is JSON over the
+WebSocket Node already ships, and the two methods needed here are small enough
+to own. taste-check still installs with nothing behind it.
+
+Two things it does that reading tokens cannot:
+
+- **It composites the whole background stack.** White text on a 75% black scrim
+  over a near-white page measures 10.57:1. Stopping at the first opaque
+  ancestor, which is what the check this was ported from did, measures the
+  white against the page and reports 1.04:1. That is a false failure, and the
+  same shortcut produces a false pass with the colours reversed.
+- **It can measure a state.** `before` runs on every navigation ahead of the
+  page's own scripts, so a theme read at boot sees it. `after` runs once there
+  is a document. Each state's setup is removed before the next, so they cannot
+  leak into each other.
+
+A selector matching nothing fails. So does a border colour on an edge with no
+width: the question is wrong rather than the answer being zero.
+
+CI now fails if the runner has no browser, because the runtime tests skip
+themselves without one and a silently skipped suite is the failure this project
+exists to prevent.
+
 ## 0.4.1
 
 Documentation only. No code changed.

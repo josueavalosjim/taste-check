@@ -5,6 +5,8 @@
 export { runContrast } from './contrast.mjs';
 export { runTreatments } from './treatments.mjs';
 export { runJudge, buildPrompt, checklistLines, extractJson } from './judge.mjs';
+export { runRuntime } from './runtime.mjs';
+export { connect, findBrowser } from './cdp.mjs';
 export { load, validate } from './config.mjs';
 export { toText, toJson, failed } from './report.mjs';
 export { parseColor, contrastRatio, composite, luminance } from './color.mjs';
@@ -14,6 +16,7 @@ export { openTags, classesOf } from './treatments.mjs';
 import { runContrast } from './contrast.mjs';
 import { runTreatments } from './treatments.mjs';
 import { runJudge } from './judge.mjs';
+import { runRuntime } from './runtime.mjs';
 
 /**
  * Run the deterministic checks a config asks for. `only` narrows to one by
@@ -37,4 +40,13 @@ export function run(config, cwd, { only = null } = {}) {
 /** Run the judge. Separate from `run` on purpose: see the note above. */
 export function judge(config, cwd) {
   return [runJudge(config.judge, cwd)];
+}
+
+/**
+ * Measure a rendered page. Separate from `run` because it needs a browser and
+ * a server that is already up, which is a heavier precondition than reading
+ * files off disk, and not one to impose on the check people put in a hook.
+ */
+export async function runtime(config, cwd) {
+  return [await runRuntime(config.runtime, cwd)];
 }

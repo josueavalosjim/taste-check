@@ -1,7 +1,7 @@
 {
   "name": "@josueavalosjim/taste-check",
-  "version": "0.4.1",
-  "description": "Design review in CI with a line down the middle: measured checks that gate the build (WCAG contrast over your own tokens, one-off values in your own markup) and a fresh-eyes model judge whose verdicts stay advisory. Ships no design rules of its own.",
+  "version": "0.5.0",
+  "description": "Design review in CI with a line down the middle: measured checks that gate the build (WCAG contrast from your tokens or from a real rendered page, one-off values in your markup) and a fresh-eyes model judge whose verdicts stay advisory. Zero dependencies. Ships no design rules of its own.",
   "keywords": [
     "accessibility",
     "cli",

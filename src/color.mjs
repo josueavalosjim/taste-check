@@ -262,6 +262,22 @@ export function parseColor(input) {
   return err(`"${text}" is not a colour this tool can parse`);
 }
 
+/**
+ * Flatten a stack of backgrounds, nearest the element first, into one opaque
+ * colour.
+ *
+ * The check this ports from walked up to the first ancestor with alpha over
+ * 0.99 and measured against that, which quietly discards every translucent
+ * layer in between. A caption on a dark scrim over a light page is measured
+ * against the light page, and reports a pass it has not earned. Compositing
+ * the whole stack is what is actually painted.
+ */
+export function flatten(layers) {
+  let ground = layers[layers.length - 1].slice(0, 3);
+  for (let i = layers.length - 2; i >= 0; i -= 1) ground = composite(layers[i], ground);
+  return ground;
+}
+
 /** Composite a translucent foreground over an opaque ground. */
 export function composite(fg, bg) {
   return [0, 1, 2].map((i) => fg[3] * fg[i] + (1 - fg[3]) * bg[i]);

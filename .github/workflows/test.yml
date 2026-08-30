@@ -19,6 +19,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
+      # The runtime tests skip themselves when there is no browser, which is
+      # right locally and wrong here: a silently skipped suite is the exact
+      # failure this project is about. Fail loudly if the runner has none.
+      - name: the runner has a browser for the runtime tests
+        run: node -e "import('./src/cdp.mjs').then(m=>{const b=m.findBrowser();if(!b){console.error('no Chromium on this runner, so the runtime tests would skip');process.exit(1)}console.log('using '+b)})"
+
       - run: npm test
       # The fixture is the tool checking itself. Exit codes rather than
       # output text, so a reworded message cannot quietly pass this.
