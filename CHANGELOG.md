@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.3.1
+
+**`!important` is stripped from a token value.** A token declared
+`--ink: #111 !important` was reaching the colour parser as the string
+`#111 !important` and failing as unparseable, on completely valid CSS. Found
+by diffing the parser against a real CSSOM: a browser reading the property back
+gets `#111`, so the tool should too.
+
+Testing got a lot harder in this release, which is how that bug surfaced.
+
+- 230 randomly generated colours rendered in a browser, with getComputedStyle
+  read back and committed as a corpus. All agree.
+- The CSS walker diffed against a browser on a stylesheet full of braces and
+  semicolons hidden inside comments, strings and `url()`.
+- The CLI binary now has end-to-end tests. Every check before this called the
+  modules directly, so the suite would have stayed green with a broken exit
+  code, a dead subcommand or a mis-parsed flag.
+- A seeded fuzz suite over both hand-rolled walkers, plus pathological inputs:
+  5000-deep braces, a two million character line, unterminated strings and
+  comments, null bytes, a lone surrogate, and 400-deep nested template holes.
+  40,000 random inputs found no crashes and no hangs.
+
+Also says "1 pair" instead of "1 pairs".
+
 ## 0.3.0
 
 **`hsl()`, `hsla()` and `hwb()` parse.** Both syntaxes each, all four angle

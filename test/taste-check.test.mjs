@@ -197,6 +197,38 @@ describe('token resolution', () => {
     assert.match(result.reason, /circle/);
   });
 
+  test('!important is stripped, because it is cascade info and not a value', () => {
+    // Found by diffing this parser against a real CSSOM: a browser reading
+    // the property back gets "#111111", so a token declared !important was
+    // reaching the colour parser as "#111111 !important" and failing.
+    const table = resolveScopes(
+      parseDeclarations(':root { --a: #111111 !important; --b: rgb(1 2 3)   !IMPORTANT  ; }'),
+      [':root'],
+    );
+    assert.equal(resolveValue(table, '--a').value, '#111111');
+    assert.equal(resolveValue(table, '--b').value, 'rgb(1 2 3)');
+    assert.equal(parseColor(resolveValue(table, '--a').value).ok, true);
+  });
+
+  test('braces and semicolons inside comments, strings and url() are not structure', () => {
+    const table = resolveScopes(
+      parseDeclarations(`:root {
+        /* a comment with a } brace and a ; semicolon */
+        --quoted: "a } brace ; inside a string";
+        --url: url("data:image/svg+xml;charset=utf8,<svg/>");
+        --colon-in-value: background:red;
+        --after: #abcdef;
+      }`),
+      [':root'],
+    );
+    // Every value below was confirmed against getComputedStyle in a browser.
+    assert.equal(resolveValue(table, '--quoted').value, '"a } brace ; inside a string"');
+    assert.equal(resolveValue(table, '--url').value, 'url("data:image/svg+xml;charset=utf8,<svg/>")');
+    assert.equal(resolveValue(table, '--colon-in-value').value, 'background:red');
+    // The one that proves the walker did not lose its place along the way.
+    assert.equal(resolveValue(table, '--after').value, '#abcdef');
+  });
+
   test('a selector is matched exactly, not by substring', () => {
     const table = resolveScopes(parseDeclarations(':root .nested { --a: red; }'), [':root']);
     assert.equal(table.has('--a'), false);
@@ -570,5 +602,42 @@ describe('the judge', () => {
     for (const name of ['judge.config.json', 'blocking.config.json']) {
       assert.deepEqual(validate(JSON.parse(readFileSync(join(DIR, name), 'utf8'))), [], name);
     }
+  });
+});
+
+describe('colour, against a browser', () => {
+  // A corpus of randomly generated colours rendered in a real browser, with
+  // getComputedStyle read back. It exists because the fourteen hand-picked
+  // cases above are the ones I thought to check, and the ones I did not think
+  // to check are exactly where a conversion bug would live.
+  const { cases } = JSON.parse(readFileSync(join(FIXTURE, 'browser-colors.json'), 'utf8'));
+
+  test('the corpus is big enough to be worth having', () => {
+    assert.ok(cases.length > 200, `only ${cases.length} cases`);
+    // Every family the parser claims to support should be represented.
+    for (const family of ['hsl(', 'hsla(', 'hwb(', 'rgb(', 'rgba(', '#']) {
+      assert.ok(cases.some(([c]) => c.startsWith(family)), `no ${family} cases`);
+    }
+  });
+
+  test('every case agrees with the browser', () => {
+    const wrong = [];
+    for (const [text, expected] of cases) {
+      const got = parseColor(text);
+      if (!got.ok) {
+        wrong.push(`${text}: parser errored, ${got.reason}`);
+        continue;
+      }
+      const want = expected.match(/[\d.]+/g).map(Number);
+      const wantAlpha = expected.startsWith('rgba') ? want[3] : 1;
+      const mine = got.rgba.slice(0, 3).map(Math.round);
+      // One unit of slack on each channel: the browser rounds once, we round
+      // once, and the two roundings sit either side of the same real number.
+      const off = mine.map((c, i) => Math.abs(c - want[i]));
+      if (Math.max(...off) > 1 || Math.abs(got.rgba[3] - wantAlpha) > 0.006) {
+        wrong.push(`${text}\n     browser ${expected}\n     parser  rgba(${mine.join(', ')}, ${got.rgba[3].toFixed(3)})`);
+      }
+    }
+    assert.deepEqual(wrong, [], `${wrong.length} of ${cases.length} disagree:\n  ${wrong.join('\n  ')}`);
   });
 });

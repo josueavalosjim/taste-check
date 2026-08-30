@@ -66,10 +66,15 @@ export function parseDeclarations(css) {
     if (colon === -1) return;
     const prop = text.slice(0, colon).trim();
     if (!prop.startsWith('--')) return;
+    // !important is cascade information, not part of the value. A browser
+    // strips it before anyone reads the property back, and leaving it on
+    // would hand "#111 !important" to the colour parser as if it were a
+    // colour. Found by diffing this parser against a real CSSOM.
+    const value = text.slice(colon + 1).trim().replace(/\s*!\s*important\s*$/i, '').trim();
     const selector = [...stack].reverse().find((s) => !s.startsWith('@')) ?? '';
     decls.push({
       prop,
-      value: text.slice(colon + 1).trim(),
+      value,
       selector,
       atRules: stack.filter((s) => s.startsWith('@')),
       index: bufferStart + (source.slice(bufferStart, end).length - source.slice(bufferStart, end).trimStart().length),
