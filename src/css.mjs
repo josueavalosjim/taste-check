@@ -13,11 +13,31 @@
  * relies on `.a.b` beating `.b`, list the scopes in the order you want them
  * applied and the result is the one you asked for.
  *
- * Declarations inside an at-rule are ignored unless a scope opts into that
- * at-rule by name. Without that rule, a `@media (prefers-color-scheme: dark)`
- * block containing `:root` would silently overwrite the light theme, and the
- * light theme would be checked against colours it never paints.
+ * At-rules split into two kinds, and they are treated differently because
+ * they mean different things.
+ *
+ * A CONDITIONAL at-rule (`@media`, `@supports`, `@container`, `@scope`) only
+ * applies when its condition holds, so its declarations are ignored unless a
+ * scope opts into it by name. Without that, a
+ * `@media (prefers-color-scheme: dark)` block containing `:root` would
+ * overwrite the light theme, and light would be checked against colours it
+ * never paints.
+ *
+ * A GROUPING at-rule, `@layer` above all, always applies. It changes cascade
+ * priority, not whether the declarations exist. So it is transparent here: a
+ * `:root` inside `@layer tokens` resolves exactly as a top-level `:root`
+ * would. A scope can still name a layer to narrow to it, but nobody should
+ * have to write that just to see their own tokens.
+ *
+ * Layer order is not modelled. Within the scopes a theme lists, the last
+ * declaration still wins, same as everywhere else here.
  */
+
+/**
+ * At-rules whose contents are conditional, and so must be opted into.
+ * Anything else wrapping a rule is grouping, and is looked straight through.
+ */
+const CONDITIONAL = /^@(media|supports|container|scope|document)\b/;
 
 /** Blank out comments, keeping every offset and newline so lines stay true. */
 function blankComments(css) {
@@ -104,20 +124,40 @@ function selectorMatches(list, scope) {
  * The token table for one theme: a Map of `--name` to { value, selector }.
  * Scopes are applied in order, later winning.
  */
+/** The declarations one scope selects, in source order. */
+function declsForScope(decls, scope) {
+  const selector = typeof scope === 'string' ? scope : scope.selector;
+  const atRule = typeof scope === 'string' ? null : (scope.atRule ?? null);
+  return decls.filter((d) => {
+    if (!selectorMatches(d.selector, selector)) return false;
+    if (atRule === null) {
+      // Only a conditional wrapper hides a declaration by default. A grouping
+      // one like @layer does not.
+      return !d.atRules.some((a) => CONDITIONAL.test(a));
+    }
+    return d.atRules.some((a) => a.includes(atRule));
+  });
+}
+
 export function resolveScopes(decls, scopes) {
   const table = new Map();
   for (const scope of scopes) {
-    const selector = typeof scope === 'string' ? scope : scope.selector;
-    const atRule = typeof scope === 'string' ? null : (scope.atRule ?? null);
-    for (const d of decls) {
-      if (!selectorMatches(d.selector, selector)) continue;
-      if (atRule === null) {
-        if (d.atRules.length) continue;
-      } else if (!d.atRules.some((a) => a.includes(atRule))) continue;
-      table.set(d.prop, d);
-    }
+    for (const d of declsForScope(decls, scope)) table.set(d.prop, d);
   }
   return table;
+}
+
+/**
+ * The scopes in a theme that selected nothing at all.
+ *
+ * A theme can resolve plenty of tokens while one of its scopes is quietly
+ * dead: write `[data-theme="dark"]` when the stylesheet says
+ * `:root[data-theme="dark"]` and the base scope still fills the table, so the
+ * dark theme gets measured against the light values and reports a pass. The
+ * numbers look right, they are just the wrong theme's numbers.
+ */
+export function unmatchedScopes(decls, scopes) {
+  return scopes.filter((scope) => declsForScope(decls, scope).length === 0);
 }
 
 /**

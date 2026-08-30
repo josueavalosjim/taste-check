@@ -15,7 +15,7 @@ import { after, describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { parseColor, contrastRatio } from '../src/color.mjs';
-import { parseDeclarations, resolveScopes, resolveValue } from '../src/css.mjs';
+import { parseDeclarations, resolveScopes, resolveValue, unmatchedScopes } from '../src/css.mjs';
 import { load, validate } from '../src/config.mjs';
 import { run } from '../src/index.mjs';
 import { failed } from '../src/report.mjs';
@@ -115,6 +115,45 @@ describe('token resolution', () => {
     assert.equal(resolveValue(light, '--link').value, '#2f5fd0');
     const dark = resolveScopes(decls, [':root', '[data-theme="dark"]']);
     assert.equal(resolveValue(dark, '--link').value, '#8fb0f5');
+  });
+
+  test('a grouping at-rule is transparent, a conditional one is not', () => {
+    // @layer always applies; it only changes cascade priority. @media and
+    // @supports apply conditionally. Treating them the same forced anyone
+    // with a layered token file to opt in just to see their own tokens.
+    const css = `
+      @layer tokens, base;
+      @layer tokens {
+        :root { --bg: #fff; --ink: #111; }
+        :root[data-theme="dark"] { --bg: #000; }
+      }
+      @media (prefers-color-scheme: dark) { :root { --bg: #123456; } }
+      @supports (color: oklch(0 0 0)) { :root { --ink: oklch(0 0 0); } }
+    `;
+    const decls = parseDeclarations(css);
+
+    const light = resolveScopes(decls, [':root']);
+    assert.equal(resolveValue(light, '--bg').value, '#fff', '@layer must not hide a declaration');
+    assert.equal(resolveValue(light, '--ink').value, '#111', '@supports must still be ignored');
+
+    const dark = resolveScopes(decls, [':root', ':root[data-theme="dark"]']);
+    assert.equal(resolveValue(dark, '--bg').value, '#000', 'an override inside a layer must still win');
+
+    const system = resolveScopes(decls, [
+      ':root',
+      { selector: ':root', atRule: 'prefers-color-scheme: dark' },
+    ]);
+    assert.equal(resolveValue(system, '--bg').value, '#123456', 'opting into a media query still works');
+
+    const narrowed = resolveScopes(decls, [{ selector: ':root', atRule: 'layer tokens' }]);
+    assert.equal(resolveValue(narrowed, '--bg').value, '#fff', 'naming a layer still narrows to it');
+  });
+
+  test('a conditional at-rule nested inside a layer stays hidden', () => {
+    const decls = parseDeclarations(
+      '@layer tokens { @media (min-width: 60rem) { :root { --gap: 2rem; } } }',
+    );
+    assert.equal(resolveScopes(decls, [':root']).has('--gap'), false);
   });
 
   test('a circular var() is reported rather than hanging', () => {
@@ -294,6 +333,36 @@ describe('planted violations', () => {
     const results = run({ treatments: { ...config.treatments, files: ['markup/nothing-here/*.jsx'] } }, dir);
     assert.equal(failed(results), true, 'an empty glob must not read as a clean run');
     assert.match(byName(results, 'treatments').problems[0], /no markup files matched/);
+  });
+
+  test('a scope that selects nothing fails, even when the theme has tokens', () => {
+    // The dangerous shape: the base scope fills the table, so the theme is not
+    // empty, but the override scope is a typo and contributes nothing. Without
+    // this check the dark theme silently reports the light theme's numbers.
+    const decls = parseDeclarations(
+      ':root { --bg: #fff; } :root[data-theme="dark"] { --bg: #000; }',
+    );
+    const typo = [':root', '[data-theme="dark"]'];
+    assert.equal(resolveScopes(decls, typo).size, 1, 'the theme still resolves a token');
+    assert.deepEqual(unmatchedScopes(decls, typo), ['[data-theme="dark"]']);
+    assert.deepEqual(unmatchedScopes(decls, [':root', ':root[data-theme="dark"]']), []);
+
+    const { config, dir } = loadConfig('pass.config.json');
+    const results = run(
+      {
+        contrast: {
+          ...config.contrast,
+          // The fixture writes `[data-theme="dark"]`, so the `:root`-prefixed
+          // form selects nothing. That is the real shape of the bug: a
+          // selector that is plausible, close, and dead.
+          themes: [{ name: 'dark', scopes: [':root', ':root[data-theme="dark"]'] }],
+          pairs: config.contrast.pairs.map(({ themes, ...p }) => p),
+        },
+      },
+      dir,
+    );
+    assert.equal(failed(results), true, 'a dead scope must not read as a pass');
+    assert.match(byName(results, 'contrast').problems[0], /matched no declaration/);
   });
 
   test('a token file matching nothing fails instead of reporting clean', () => {

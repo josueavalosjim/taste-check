@@ -18,7 +18,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { contrastRatio, isOpaque, parseColor } from './color.mjs';
-import { parseDeclarations, resolveScopes, resolveValue } from './css.mjs';
+import { parseDeclarations, resolveScopes, resolveValue, unmatchedScopes } from './css.mjs';
 import { expand, label } from './files.mjs';
 
 /** A token name, or a literal colour, resolved to rgba for one theme. */
@@ -59,6 +59,20 @@ export function runContrast(config, cwd) {
           .map((s) => (typeof s === 'string' ? s : s.selector))
           .join(', ')}) against ${files.map((f) => label(f, cwd)).join(', ')}.`,
       );
+      continue;
+    }
+
+    // A scope that selects nothing is not a smaller theme, it is a typo. The
+    // theme above still has tokens, so nothing else here would notice.
+    const dead = unmatchedScopes(decls, theme.scopes);
+    if (dead.length) {
+      for (const scope of dead) {
+        const shown = typeof scope === 'string' ? scope : JSON.stringify(scope);
+        problems.push(
+          `theme "${theme.name}": the scope ${shown} matched no declaration. ` +
+            `Every token it was meant to contribute is coming from another scope instead.`,
+        );
+      }
       continue;
     }
 

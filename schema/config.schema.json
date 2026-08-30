@@ -45,7 +45,7 @@
                         "selector": { "type": "string", "minLength": 1 },
                         "atRule": {
                           "type": "string",
-                          "description": "Opt into declarations nested in a matching at-rule prelude, for example \"prefers-color-scheme: dark\". Without this, at-rule declarations are ignored."
+                          "description": "Opt into declarations nested in a matching at-rule prelude, for example \"prefers-color-scheme: dark\". Conditional at-rules (@media, @supports, @container, @scope) are ignored without this. Grouping at-rules like @layer are always transparent, so you only name one to narrow a scope to it."
                         }
                       }
                     }

@@ -50,6 +50,8 @@ Each of these exits 1 rather than passing quietly:
 - a pair naming a token that does not exist
 - a file pattern matching no files
 - a theme whose scopes resolve no tokens
+- a single scope inside a theme that selects nothing, even when the theme has
+  tokens from its other scopes
 - a colour value the parser does not understand
 - an unknown key in the config, which is usually a typo doing nothing
 
@@ -85,16 +87,24 @@ in code, because the floor for a decorative hairline and the floor for body
 text are different decisions and both are yours.
 
 A theme is an ordered list of scopes and later scopes win, which is the cascade
-for equal specificity. Declarations inside an at-rule are ignored unless a
-scope opts in:
+for equal specificity.
+
+`@layer` is transparent. A `:root` inside `@layer tokens` resolves exactly as a
+top-level `:root` does, because a layer changes cascade priority rather than
+whether the declarations apply at all.
+
+Conditional at-rules are different. `@media`, `@supports`, `@container` and
+`@scope` only apply when their condition holds, so their declarations are
+ignored unless a scope opts in by name:
 
 ```json
 { "name": "dark-system", "scopes": [":root", { "selector": ":root", "atRule": "prefers-color-scheme: dark" }] }
 ```
 
-Without that rule a `@media (prefers-color-scheme: dark)` block containing
-`:root` would overwrite the light theme, and the light checks would silently
-measure against colours the light theme never paints.
+Without that, a `@media (prefers-color-scheme: dark)` block containing `:root`
+would overwrite the light theme, and the light checks would measure against
+colours the light theme never paints. You can also name a layer this way to
+narrow a scope to it, but you should never need to just to see your tokens.
 
 Two details make the numbers match a browser rather than approximate it.
 Translucent foregrounds are composited over their background before measuring,
