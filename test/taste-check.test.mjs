@@ -115,10 +115,10 @@ describe('colour maths', () => {
   }
 
   test('an unparseable colour is an error, never a silent pass', () => {
-    for (const text of ['lab(54% 81 70)', 'color-mix(in srgb, red, blue)', 'chartreuse', '']) {
+    for (const text of ['color-mix(in srgb, red, blue)', 'color(display-p3 1 0 0)', 'chartreuse', '']) {
       assert.equal(parseColor(text).ok, false, `${text} should not parse`);
     }
-    assert.match(parseColor('lch(54% 107 41)').reason, /not supported in v1/);
+    assert.match(parseColor('color-mix(in srgb, red, blue)').reason, /not supported in v1/);
   });
 });
 
@@ -749,11 +749,74 @@ describe('oklch and oklab, against a browser', () => {
     assert.equal(parseColor('oklab(0.4 0.1 -0.2 / 25%)').rgba[3], 0.25);
   });
 
-  test('lab() and lch() still fail loudly', () => {
-    for (const text of ['lab(54% 81 70)', 'lch(54% 107 41)']) {
+  test('color-mix() and color() still fail loudly', () => {
+    for (const text of ['color-mix(in srgb, red, blue)', 'color(display-p3 1 0 0)']) {
       const result = parseColor(text);
       assert.equal(result.ok, false, text);
       assert.match(result.reason, /not supported in v1/);
     }
+  });
+});
+
+describe('lab and lch, against a browser', () => {
+  // The CIE spaces are specified against the D50 white point while sRGB is
+  // D65, so a chromatic adaptation sits in the middle of the conversion. This
+  // corpus pins that adaptation. Recalling a colour matrix correctly and
+  // recalling it confidently feel identical from the inside, so none of the
+  // constants in color.mjs are trusted, they are checked.
+  const { cases } = JSON.parse(readFileSync(join(FIXTURE, 'browser-lab.json'), 'utf8'));
+
+  test('the corpus covers both functions, percentages and out-of-gamut', () => {
+    assert.ok(cases.length >= 180, `only ${cases.length} cases`);
+    assert.ok(cases.some(([c]) => c.startsWith('lab(')));
+    assert.ok(cases.some(([c]) => c.startsWith('lch(')));
+    assert.ok(cases.some(([c]) => c.includes('%')));
+    assert.ok(cases.some(([c]) => c.includes('deg')));
+    assert.ok(cases.filter(([, rgb]) => /\b(0|255)\b/.test(rgb)).length > 20, 'nothing was clipped');
+  });
+
+  test('every case agrees with the browser', () => {
+    const wrong = [];
+    for (const [text, expected] of cases) {
+      const got = parseColor(text);
+      if (!got.ok) {
+        wrong.push(`${text}: parser errored, ${got.reason}`);
+        continue;
+      }
+      const want = expected.match(/\d+/g).map(Number);
+      const mine = got.rgba.slice(0, 3).map(Math.round);
+      if (Math.max(...mine.map((c, i) => Math.abs(c - want[i]))) > 1) {
+        wrong.push(`${text}\n     browser ${expected}\n     parser  rgb(${mine.join(', ')})`);
+      }
+    }
+    assert.deepEqual(wrong, [], `${wrong.length} of ${cases.length} disagree:\n  ${wrong.join('\n  ')}`);
+  });
+
+  test('the anchors land where they should', () => {
+    // sRGB red in Lab and LCH against D50, and both achromatic ends. A wrong
+    // white point drifts these while a random corpus still looks close.
+    assert.deepEqual(parseColor('lab(54.29% 80.8 69.89)').rgba.slice(0, 3).map(Math.round), [255, 0, 0]);
+    assert.deepEqual(parseColor('lch(54.29% 106.84 40.85)').rgba.slice(0, 3).map(Math.round), [255, 0, 0]);
+    assert.deepEqual(parseColor('lab(100% 0 0)').rgba.slice(0, 3).map(Math.round), [255, 255, 255]);
+    assert.deepEqual(parseColor('lab(0% 0 0)').rgba.slice(0, 3).map(Math.round), [0, 0, 0]);
+  });
+
+  test('percentages mean the CIE ranges, not the OK ones', () => {
+    // 100% is 125 for lab a/b and 150 for lch chroma, against 0.4 in the OK
+    // spaces. Using the wrong scale gives a plausible colour, which is how it
+    // would survive a casual look.
+    assert.deepEqual(
+      parseColor('lab(50% 100% 100%)').rgba.slice(0, 3).map(Math.round),
+      parseColor('lab(50 125 125)').rgba.slice(0, 3).map(Math.round),
+    );
+    assert.deepEqual(
+      parseColor('lch(50% 100% 90)').rgba.slice(0, 3).map(Math.round),
+      parseColor('lch(50 150 90)').rgba.slice(0, 3).map(Math.round),
+    );
+  });
+
+  test('alpha passes through', () => {
+    assert.equal(parseColor('lab(50 40 -30 / 0.5)').rgba[3], 0.5);
+    assert.equal(parseColor('lch(50 40 90 / 25%)').rgba[3], 0.25);
   });
 });

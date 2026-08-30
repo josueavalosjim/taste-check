@@ -25,7 +25,7 @@ const NAMED = {
 };
 
 /** Formats deliberately not supported in v1, named so the error is useful. */
-const KNOWN_UNSUPPORTED = ['lab', 'lch', 'color-mix', 'color'];
+const KNOWN_UNSUPPORTED = ['color-mix', 'color'];
 
 const NUMBER = /^[+-]?(?:\d+\.?\d*|\.\d+)%?$/;
 
@@ -94,6 +94,45 @@ function oklabToRgb(L, a, b) {
   });
 }
 
+/**
+ * CIELAB to sRGB.
+ *
+ * Longer than the OKLab path because CSS specifies lab() and lch() against the
+ * D50 white point while sRGB is D65, so a chromatic adaptation sits in the
+ * middle. The matrix below folds the adaptation and the XYZ-to-sRGB step
+ * together, which is how CSS Color 4 publishes it.
+ *
+ * Every constant here is checked against a browser rather than trusted. See
+ * the lab corpus in the tests: recalling a colour matrix correctly and
+ * recalling it confidently feel identical from the inside.
+ */
+const D50 = [0.3457 / 0.3585, 1, (1 - 0.3457 - 0.3585) / 0.3585];
+const XYZ_D50_TO_LINEAR_SRGB = [
+  [3.1341359569958707, -1.6173863321612538, -0.4906619460083532],
+  [-0.9787684456108496, 1.9161415707653082, 0.03344273116131949],
+  [0.07203000098937905, -0.22898208700867398, 1.4053851622747988],
+];
+
+function labToRgb(L, a, b) {
+  const e = 216 / 24389;
+  const k = 24389 / 27;
+  const fy = (L + 16) / 116;
+  const fx = a / 500 + fy;
+  const fz = fy - b / 200;
+  const xr = fx ** 3 > e ? fx ** 3 : (116 * fx - 16) / k;
+  const yr = L > k * e ? fy ** 3 : L / k;
+  const zr = fz ** 3 > e ? fz ** 3 : (116 * fz - 16) / k;
+  const xyz = [xr * D50[0], yr * D50[1], zr * D50[2]];
+  const linear = XYZ_D50_TO_LINEAR_SRGB.map((row) => row.reduce((sum, m, i) => sum + m * xyz[i], 0));
+  return linear.map((c) => {
+    const v =
+      c <= 0.0031308
+        ? 12.92 * c
+        : 1.055 * Math.abs(c) ** (1 / 2.4) * Math.sign(c) - 0.055 * Math.sign(c);
+    return clamp(v, 0, 1) * 255;
+  });
+}
+
 /** HSL to sRGB. h in turns, s and l in 0-1. */
 function hslToRgb(h, s, l) {
   const f = (n) => {
@@ -153,29 +192,39 @@ export function parseColor(input) {
   const fn = text.match(/^([a-zA-Z-]+)\s*\(([\s\S]*)\)$/);
   if (fn) {
     const name = fn[1].toLowerCase();
-    if (name === 'oklch' || name === 'oklab') {
+    if (name === 'oklch' || name === 'oklab' || name === 'lab' || name === 'lch') {
+      const cie = name === 'lab' || name === 'lch';
+      const polarSpace = name === 'oklch' || name === 'lch';
       const [head, ...tail] = fn[2].split('/');
       if (tail.length > 1) return err(`"${text}" has more than one slash`);
       const parts = head.trim().split(/[,\s]+/).filter(Boolean);
       const alphaToken = tail.length ? tail[0].trim() : undefined;
       if (parts.length !== 3) return err(`"${text}" needs three components`);
 
-      // Lightness is 0-1, or a percentage of that.
-      const L = parts[0].endsWith('%') ? percent(parts[0]) : NUMBER.test(parts[0]) ? parseFloat(parts[0]) : null;
+      // Lightness runs 0-1 in the OK spaces and 0-100 in the CIE ones. A
+      // percentage means the same thing in both, scaled to whichever.
+      const top = cie ? 100 : 1;
+      const L = parts[0].endsWith('%')
+        ? percent(parts[0]) * top
+        : NUMBER.test(parts[0])
+          ? parseFloat(parts[0])
+          : null;
       if (L === null) return err(`"${text}" has a lightness that is not a number`);
+      // What 100% means for the other two components, per CSS Color 4.
+      const abFull = cie ? 125 : 0.4;
+      const chromaFull = cie ? 150 : 0.4;
 
       let a;
       let b;
-      if (name === 'oklab') {
-        // a and b are roughly -0.4 to 0.4; a percentage is relative to 0.4.
+      if (!polarSpace) {
         const ab = [parts[1], parts[2]].map((t) =>
-          t.endsWith('%') ? percent(t) * 0.4 : NUMBER.test(t) ? parseFloat(t) : null,
+          t.endsWith('%') ? percent(t) * abFull : NUMBER.test(t) ? parseFloat(t) : null,
         );
         if (ab.some((v) => v === null)) return err(`"${text}" has a component that is not a number`);
         [a, b] = ab;
       } else {
         const C = parts[1].endsWith('%')
-          ? percent(parts[1]) * 0.4
+          ? percent(parts[1]) * chromaFull
           : NUMBER.test(parts[1])
             ? parseFloat(parts[1])
             : null;
@@ -193,7 +242,8 @@ export function parseColor(input) {
         if (parsed === null) return err(`"${text}" has an alpha that is not a number`);
         alphaValue = parsed;
       }
-      return ok([...oklabToRgb(clamp(L, 0, 1), a, b), clamp(alphaValue, 0, 1)]);
+      const rgb = cie ? labToRgb(clamp(L, 0, 100), a, b) : oklabToRgb(clamp(L, 0, 1), a, b);
+      return ok([...rgb, clamp(alphaValue, 0, 1)]);
     }
 
     const polar = name === 'hsl' || name === 'hsla' || name === 'hwb';

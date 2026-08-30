@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.0
+
+**`lab()` and `lch()` parse.** Both syntaxes, percentages scaled to the CIE
+ranges rather than the OK ones, all four angle units on the hue.
+
+These are specified against the D50 white point while sRGB is D65, so a
+chromatic adaptation sits in the middle of the conversion that `oklch()` does
+not need. Checked rather than trusted: 190 generated colours painted on a
+canvas in a real browser and read back as pixels, including out-of-gamut ones.
+Worst disagreement across all 190 is one channel unit.
+
+Every colour format in CSS that names a single colour now parses, except
+`color-mix()` and `color()`, which are a different shape of problem.
+
 ## 0.7.0
 
 **An agent can carry the model call.** `taste-check judge --emit` prints the

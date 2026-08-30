@@ -457,10 +457,11 @@ component are all invisible here. What this gives you is that the
 values in your token file relate to each other the way you said they should. It
 does not prove what a visitor sees.
 
-**Only some colour formats parse.** Hex in 3, 4, 6 and 8 digits; `rgb()`,
-`rgba()`, `hsl()`, `hsla()`, `hwb()`, `oklch()` and `oklab()`; and `white` /
-`black` / `transparent`. `lab()`, `lch()` and `color-mix()` are not parsed yet.
-A value it cannot parse fails, so you hear about it immediately.
+**Not every colour format parses.** What does: hex in 3, 4, 6 and 8 digits;
+`rgb()`, `rgba()`, `hsl()`, `hsla()`, `hwb()`, `oklch()`, `oklab()`, `lab()`
+and `lch()`; and `white` / `black` / `transparent`. `color-mix()` and
+`color()` do not. A value it cannot parse fails, so you hear about it
+immediately.
 
 An `oklch()` outside the sRGB gamut is clipped rather than gamut-mapped, which
 is what a browser canvas does with it. That was checked rather than assumed:
@@ -482,10 +483,9 @@ Not built. Written down so the shape is clear.
 
 **YAML configs**, once there is a reason to take on a parser.
 
-**`lab()` and `lch()`**, which need the D50 white point and a chromatic
-adaptation step that `oklch()` does not. Completeness rather than reach, so
-it sits behind the others. Worth doing the same way when it happens: derive it,
-then check every case against a browser rather than trusting the matrices.
+**`color-mix()` and `color()`**, which are a different shape of problem: one
+needs an interpolation model and the other a colour space argument, so neither
+is another conversion function.
 
 ## Development
 
