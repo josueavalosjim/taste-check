@@ -1,0 +1,30 @@
+{
+  "$schema": "../../schema/config.schema.json",
+  "contrast": {
+    "tokens": ["tokens.css"],
+    "themes": [
+      { "name": "light", "scopes": [":root"] },
+      { "name": "dark", "scopes": [":root", "[data-theme=\"dark\"]"] }
+    ],
+    "pairs": [
+      { "fg": "--text-strong", "bg": "--surface", "min": 4.5, "label": "still fine" },
+      { "fg": "--hairline", "bg": "--surface", "min": 3.0, "label": "fails in dark only" },
+      { "fg": "--text-strong", "bg": "--veil", "min": 4.5, "label": "a translucent ground" },
+      { "fg": "--nonexistent", "bg": "--surface", "min": 4.5, "label": "a token that is not there" }
+    ]
+  },
+  "treatments": {
+    "files": ["markup/*.jsx"],
+    "elements": ["a", "button", "div", "span", "p", "article", "section"],
+    "approvedClasses": [
+      "card",
+      "card__link",
+      "card__link--featured",
+      "card__tag",
+      "card__tag--on",
+      "button"
+    ],
+    "allowPrefixes": ["u-"],
+    "approvedValues": []
+  }
+}

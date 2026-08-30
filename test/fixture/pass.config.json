@@ -1,0 +1,44 @@
+{
+  "$schema": "../../schema/config.schema.json",
+  "contrast": {
+    "tokens": ["tokens.css"],
+    "themes": [
+      { "name": "light", "scopes": [":root"] },
+      { "name": "dark", "scopes": [":root", "[data-theme=\"dark\"]"] }
+    ],
+    "pairs": [
+      { "fg": "--text-strong", "bg": "--surface", "min": 4.5, "label": "body text" },
+      { "fg": "--text-strong", "bg": "--surface-raised", "min": 4.5 },
+      { "fg": "--text-quiet", "bg": "--surface", "min": 4.5, "label": "the translucent one" },
+      { "fg": "--link", "bg": "--surface", "min": 4.5, "label": "resolved through var()" },
+      {
+        "fg": "--text-strong",
+        "bg": "#ffffff",
+        "min": 4.5,
+        "label": "against a literal colour, which only exists in light",
+        "themes": ["light"]
+      },
+      {
+        "fg": "--hairline",
+        "bg": "--surface",
+        "min": 3.0,
+        "label": "borders, scoped to the theme it actually clears",
+        "themes": ["light"]
+      }
+    ]
+  },
+  "treatments": {
+    "files": ["markup/ok.jsx"],
+    "elements": ["a", "button", "div", "span", "p", "article", "section"],
+    "approvedClasses": [
+      "card",
+      "card__link",
+      "card__link--featured",
+      "card__tag",
+      "card__tag--on",
+      "button"
+    ],
+    "allowPrefixes": ["u-"],
+    "approvedValues": []
+  }
+}

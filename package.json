@@ -1,0 +1,36 @@
+{
+  "name": "taste-check",
+  "version": "0.1.0",
+  "description": "Deterministic design-system checks: WCAG contrast over your own tokens, and a one-off value linter over your own approved list. No palette, no class list, no opinions shipped.",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "taste-check": "bin/taste-check.mjs"
+  },
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "schema",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test \"test/**/*.test.mjs\""
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "wcag",
+    "contrast",
+    "accessibility",
+    "design-tokens",
+    "design-system",
+    "lint",
+    "cli"
+  ],
+  "dependencies": {}
+}

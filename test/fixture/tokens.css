@@ -1,0 +1,38 @@
+/*
+ * A fictional token file, here only to give the checks something to chew on.
+ * None of these names or values come from a real design system.
+ */
+:root {
+  --surface: #ffffff;
+  --surface-raised: #eef1f5;
+  --text-strong: #16181d;
+  /* Translucent on purpose: the checker has to composite this over the
+     surface before measuring, not read it as a pure black. */
+  --text-quiet: rgb(0 0 0 / 0.58);
+  --hairline: #767e8a;
+  /* An indirection, so var() resolution is exercised. */
+  --link: var(--brand-ink);
+  --brand-ink: #2f5fd0;
+  /* Never used as a foreground. It is here so a config can try to measure
+     against a translucent ground and be told no. */
+  --veil: rgb(255 255 255 / 0.4);
+}
+
+[data-theme="dark"] {
+  --surface: #14171c;
+  --surface-raised: #1e232a;
+  --text-strong: #f2f5f8;
+  --text-quiet: rgb(255 255 255 / 0.66);
+  /* Deliberately too faint against the dark surface. This is the one pair
+     that is meant to fail, and only in dark. */
+  --hairline: #33383f;
+  --brand-ink: #8fb0f5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Nothing opts into this at-rule, so no theme should ever see it. If a
+       theme did, the light checks would silently measure against black. */
+    --surface: #000000;
+  }
+}

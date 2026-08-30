@@ -1,0 +1,110 @@
+/**
+ * WCAG contrast, measured over your own tokens.
+ *
+ * The technique this ports was originally a Playwright test that read colours
+ * off a running page with getComputedStyle, for a good reason: a token file
+ * cannot tell you what is actually painted behind an element. That check
+ * existed because a comment in a stylesheet claimed a grey "clears 4.5:1 on
+ * white" while the page shipped on an off-white, and nothing re-checked it.
+ * The value passed by a fifth of a point, by memory, with no test to say so
+ * when the background moved.
+ *
+ * This module is the static half of that idea: it re-derives the ratio from
+ * the tokens, which is exactly what the original warned against, and is the
+ * honest trade for a tool that runs anywhere with no browser. What it keeps is
+ * the arithmetic, the alpha compositing, and the rule that a pair naming a
+ * token which does not exist is a failure rather than a skip. See "What this
+ * does not do" in the README before trusting a pass.
+ */
+import { readFileSync } from 'node:fs';
+import { contrastRatio, isOpaque, parseColor } from './color.mjs';
+import { parseDeclarations, resolveScopes, resolveValue } from './css.mjs';
+import { expand, label } from './files.mjs';
+
+/** A token name, or a literal colour, resolved to rgba for one theme. */
+function side(spec, table, theme) {
+  if (spec.startsWith('--')) {
+    const resolved = resolveValue(table, spec);
+    if (!resolved.ok) return { ok: false, reason: `theme "${theme}": ${resolved.reason}` };
+    const color = parseColor(resolved.value);
+    if (!color.ok) return { ok: false, reason: `theme "${theme}": ${spec} is ${color.reason}` };
+    return { ok: true, rgba: color.rgba };
+  }
+  const color = parseColor(spec);
+  if (!color.ok) return { ok: false, reason: `theme "${theme}": ${color.reason}` };
+  return { ok: true, rgba: color.rgba };
+}
+
+export function runContrast(config, cwd) {
+  const samples = [];
+  const problems = [];
+  const { tokens, themes, pairs } = config;
+
+  const files = expand(tokens, cwd);
+  if (!files.length) {
+    problems.push(`no token files matched ${tokens.map((t) => `"${t}"`).join(', ')}`);
+    return { name: 'contrast', samples, problems, summary: '' };
+  }
+
+  // One declaration list across every token file, in the order they were
+  // listed, so a later file overriding an earlier one behaves like a later
+  // @import would.
+  const decls = files.flatMap((file) => parseDeclarations(readFileSync(file, 'utf8')));
+
+  for (const theme of themes) {
+    const table = resolveScopes(decls, theme.scopes);
+    if (!table.size) {
+      problems.push(
+        `theme "${theme.name}" resolved zero tokens. Check its scopes (${theme.scopes
+          .map((s) => (typeof s === 'string' ? s : s.selector))
+          .join(', ')}) against ${files.map((f) => label(f, cwd)).join(', ')}.`,
+      );
+      continue;
+    }
+
+    for (const pair of pairs) {
+      if (pair.themes && !pair.themes.includes(theme.name)) continue;
+      const where = `${pair.fg} on ${pair.bg}`;
+
+      const bg = side(pair.bg, table, theme.name);
+      if (!bg.ok) {
+        problems.push(`${where}: ${bg.reason}`);
+        continue;
+      }
+      // A ground with alpha is not a ground. The original walked up the DOM to
+      // the first opaque ancestor; there is no DOM here, so the config has to
+      // name a surface that is actually opaque.
+      if (!isOpaque(bg.rgba)) {
+        problems.push(
+          `${where}: theme "${theme.name}": ${pair.bg} is translucent, so there is nothing ` +
+            `definite to measure against. Name the opaque surface behind it instead.`,
+        );
+        continue;
+      }
+
+      const fg = side(pair.fg, table, theme.name);
+      if (!fg.ok) {
+        problems.push(`${where}: ${fg.reason}`);
+        continue;
+      }
+
+      const ratio = contrastRatio(fg.rgba, bg.rgba);
+      samples.push({
+        theme: theme.name,
+        fg: pair.fg,
+        bg: pair.bg,
+        note: pair.label ?? '',
+        ratio,
+        min: pair.min,
+        pass: ratio >= pair.min,
+      });
+    }
+  }
+
+  return {
+    name: 'contrast',
+    samples,
+    problems,
+    summary: `${samples.length} pairs across ${themes.length} ${themes.length === 1 ? 'theme' : 'themes'}`,
+  };
+}

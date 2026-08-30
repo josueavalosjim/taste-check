@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/josueavalos/taste-check/schema/config.schema.json",
+  "title": "taste-check config",
+  "description": "Checks are driven entirely by this file. The tool ships no palette, no class list and no contrast floors.",
+  "type": "object",
+  "additionalProperties": false,
+  "minProperties": 1,
+  "anyOf": [{ "required": ["contrast"] }, { "required": ["treatments"] }],
+  "properties": {
+    "$schema": { "type": "string" },
+    "contrast": {
+      "type": "object",
+      "description": "WCAG contrast ratios computed from your own custom properties.",
+      "additionalProperties": false,
+      "required": ["tokens", "themes", "pairs"],
+      "properties": {
+        "tokens": {
+          "type": "array",
+          "minItems": 1,
+          "description": "CSS files holding the custom properties. Paths resolve against this config file. Later files override earlier ones.",
+          "items": { "type": "string" }
+        },
+        "themes": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Each theme is an ordered list of scopes. Later scopes win, which is the cascade for equal specificity. There is no specificity resolution.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "scopes"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "scopes": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "oneOf": [
+                    { "type": "string", "description": "A selector, matched exactly against one entry in a rule's selector list." },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["selector"],
+                      "properties": {
+                        "selector": { "type": "string", "minLength": 1 },
+                        "atRule": {
+                          "type": "string",
+                          "description": "Opt into declarations nested in a matching at-rule prelude, for example \"prefers-color-scheme: dark\". Without this, at-rule declarations are ignored."
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "pairs": {
+          "type": "array",
+          "minItems": 1,
+          "description": "What must clear what. A pair naming a token that does not exist is a failure, never a skip.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["fg", "bg", "min"],
+            "properties": {
+              "fg": { "type": "string", "minLength": 1, "description": "A token name like --text, or a literal colour." },
+              "bg": { "type": "string", "minLength": 1, "description": "As fg, but it must resolve to an opaque colour." },
+              "min": { "type": "number", "exclusiveMinimum": 0, "description": "The floor this pair must clear. No default: you decide what the rule is." },
+              "label": { "type": "string", "description": "Why this pair matters. Printed with the result." },
+              "themes": {
+                "type": "array",
+                "minItems": 1,
+                "description": "Limit the pair to these themes. Omit to check it in all of them.",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "treatments": {
+      "type": "object",
+      "description": "Class names and literal values in markup, against a list you supply.",
+      "additionalProperties": false,
+      "required": ["files"],
+      "properties": {
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Markup to scan. A pattern matching nothing is a failure, never a clean run.",
+          "items": { "type": "string" }
+        },
+        "elements": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Element names to scan. Use [\"*\"] or omit for every element.",
+          "items": { "type": "string" }
+        },
+        "approvedClasses": {
+          "type": "array",
+          "description": "Every class name allowed to appear. Anything else is reported.",
+          "items": { "type": "string" }
+        },
+        "allowPrefixes": {
+          "type": "array",
+          "description": "Class name prefixes that are always allowed, for a deliberate escape hatch.",
+          "items": { "type": "string" }
+        },
+        "approvedValues": {
+          "type": "array",
+          "description": "Literal values allowed in inline styles. Everything else that looks like a colour or a length is reported.",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}
