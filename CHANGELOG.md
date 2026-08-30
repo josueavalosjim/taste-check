@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.7.0
+
+**An agent can carry the model call.** `taste-check judge --emit` prints the
+prompt and stops; `--verdict <file|->` grades the reply. In between, an agent
+asks a fresh context of its own instead of shelling out to a second copy of
+itself.
+
+The grading is the same on both routes. Every checklist line answered exactly
+once, no invented lines, valid verdicts. Taking the agent route does not buy a
+softer check, and `--emit` still refuses when there are no screenshots or no
+checklist, because a prompt for nothing gets a confident verdict about nothing.
+
+A skill ships with the package. `taste-check judge --skill` prints its path.
+It carries the mechanism, mainly that the agent reading it must not be the
+judge, and no design rules.
+
+`judge.command` is now optional, since the agent route never needs one.
+
+Also fixes an argument parser that rejected a bare `-`, which is the
+conventional name for stdin and the value `--verdict` most wants.
+
 ## 0.6.0
 
 **`--format sarif`.** SARIF 2.1.0 on stdout, for a code scanning tab. Works on

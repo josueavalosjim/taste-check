@@ -133,13 +133,15 @@ function validateTreatments(treatments, errors) {
 
 function validateJudge(judge, errors) {
   rejectUnknown(judge, ['checklist', 'shots', 'shotCommand', 'command', 'failOn'], 'judge', errors);
-  for (const key of ['checklist', 'command']) {
-    if (typeof judge[key] !== 'string' || !judge[key]) {
+  if (typeof judge.checklist !== 'string' || !judge.checklist) {
+    errors.push('judge.checklist must be a non-empty string');
+  }
+  // command is optional: an agent carrying the call with --emit and --verdict
+  // never needs one, and demanding a placeholder would be theatre.
+  for (const key of ['command', 'shotCommand']) {
+    if (judge[key] !== undefined && (typeof judge[key] !== 'string' || !judge[key])) {
       errors.push(`judge.${key} must be a non-empty string`);
     }
-  }
-  if (judge.shotCommand !== undefined && (typeof judge.shotCommand !== 'string' || !judge.shotCommand)) {
-    errors.push('judge.shotCommand must be a non-empty string');
   }
   stringArray(judge.shots, 'judge.shots', errors);
   if (judge.failOn !== undefined && judge.failOn !== 'never' && judge.failOn !== 'fail') {

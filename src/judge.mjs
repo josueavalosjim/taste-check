@@ -154,64 +154,98 @@ export function extractJson(stdout) {
 
 const VERDICTS = new Set(['pass', 'fail', 'unsure']);
 
-export function runJudge(config, cwd) {
-  const findings = [];
-  const problems = [];
-  const { checklist: checklistPath, shots = [], shotCommand, command, failOn = 'never' } = config;
+const empty = (problems, failOn) => ({ name: 'judge', findings: [], problems, failOn, summary: '' });
+
+/**
+ * Everything the judge needs before a model is involved: the screenshots, the
+ * checklist, and the prompt built from them.
+ *
+ * Split out so the model call does not have to be a subprocess. A shell
+ * command is one way to reach a model and a poor one for an agent, which is
+ * already a model and can spawn a genuinely fresh context of its own rather
+ * than shelling out to a second copy of itself. This half prepares the call,
+ * `gradeVerdict` below checks the answer, and in between the transport is
+ * somebody else's problem.
+ *
+ * The preconditions are enforced here rather than at grading time. Handing
+ * back a prompt for zero screenshots would produce a confident verdict about
+ * nothing.
+ */
+export function prepareJudge(config, cwd) {
+  const { checklist: checklistPath, shots = [], shotCommand, failOn = 'never' } = config;
 
   if (shotCommand) {
     const made = runCommand(shotCommand, [], '', cwd);
-    if (!made.ok) {
-      problems.push(made.reason);
-      return { name: 'judge', findings, problems, failOn, summary: '' };
-    }
+    if (!made.ok) return { ok: false, result: empty([made.reason], failOn) };
   }
 
   const images = expand(shots, cwd);
   if (!images.length) {
-    problems.push(
-      `no screenshots matched ${shots.map((s) => `"${s}"`).join(', ')}. ` +
-        `A judge with nothing to look at cannot fail, so it does not get to pass either.`,
-    );
-    return { name: 'judge', findings, problems, failOn, summary: '' };
+    return {
+      ok: false,
+      result: empty(
+        [
+          `no screenshots matched ${shots.map((s) => `"${s}"`).join(', ')}. ` +
+            `A judge with nothing to look at cannot fail, so it does not get to pass either.`,
+        ],
+        failOn,
+      ),
+    };
   }
 
   let entries;
   try {
     entries = checklistEntries(readFileSync(resolve(cwd, checklistPath), 'utf8'));
   } catch {
-    problems.push(`cannot read the checklist at ${checklistPath}`);
-    return { name: 'judge', findings, problems, failOn, summary: '' };
+    return { ok: false, result: empty([`cannot read the checklist at ${checklistPath}`], failOn) };
   }
+  if (!entries.length) {
+    return {
+      ok: false,
+      result: empty(
+        [
+          `${checklistPath} has no checklist lines in it. Lines to judge are list ` +
+            `items ("- ..." or "1. ..."); everything else is treated as prose.`,
+        ],
+        failOn,
+      ),
+    };
+  }
+
+  const relative = images.map((i) => label(i, cwd));
+  return {
+    ok: true,
+    entries,
+    images,
+    relativeImages: relative,
+    prompt: buildPrompt(entries.map((e) => e.text), relative),
+  };
+}
+
+/**
+ * Check a reply against the checklist it was supposed to answer.
+ *
+ * This is the half that makes the whole thing trustworthy, and it does not
+ * care where the reply came from. A judge that quietly drops the hardest line
+ * is the failure mode to guard: every remaining verdict says pass, and the one
+ * nobody answered is the one that mattered.
+ */
+export function gradeVerdict(reply, prepared, config) {
+  const { checklist: checklistPath, failOn = 'never' } = config;
+  const findings = [];
+  const problems = [];
+  const { entries, images } = prepared;
   const lines = entries.map((e) => e.text);
   const lineNumbers = new Map(entries.map((e) => [e.text, e.line]));
-  if (!lines.length) {
-    problems.push(
-      `${checklistPath} has no checklist lines in it. Lines to judge are list ` +
-        `items ("- ..." or "1. ..."); everything else is treated as prose.`,
-    );
-    return { name: 'judge', findings, problems, failOn, summary: '' };
-  }
 
-  const reply = runCommand(command, images, buildPrompt(lines, images.map((i) => label(i, cwd))), cwd);
-  if (!reply.ok) {
-    problems.push(reply.reason);
-    return { name: 'judge', findings, problems, failOn, summary: '' };
-  }
-
-  const parsed = extractJson(reply.stdout);
+  const parsed = extractJson(reply);
   if (!parsed.ok) {
-    problems.push(`${parsed.reason}. The judge must reply with the documented JSON shape.`);
-    return { name: 'judge', findings, problems, failOn, summary: '' };
+    return empty([`${parsed.reason}. The judge must reply with the documented JSON shape.`], failOn);
   }
   if (!Array.isArray(parsed.value.findings)) {
-    problems.push('the reply has no "findings" array');
-    return { name: 'judge', findings, problems, failOn, summary: '' };
+    return empty(['the reply has no "findings" array'], failOn);
   }
 
-  // Cross-check both directions. A judge that quietly drops the hardest line
-  // is the failure mode to guard: the remaining verdicts all say pass, and
-  // the line nobody answered is the one that mattered.
   const wanted = new Set(lines);
   const answered = new Set();
   for (const f of parsed.value.findings) {
@@ -246,6 +280,27 @@ export function runJudge(config, cwd) {
     failOn,
     summary: `${lines.length} ${lines.length === 1 ? 'line' : 'lines'} against ${images.length} ${
       images.length === 1 ? 'screenshot' : 'screenshots'
-    } (${images.map((i) => label(i, cwd)).join(', ')})`,
+    } (${prepared.relativeImages.join(', ')})`,
   };
+}
+
+/** The whole thing, with a configured command as the transport. */
+export function runJudge(config, cwd) {
+  const { command, failOn = 'never' } = config;
+  const prepared = prepareJudge(config, cwd);
+  if (!prepared.ok) return prepared.result;
+
+  if (!command) {
+    return empty(
+      [
+        'judge.command is not set, so there is nothing to ask. Set it, or use ' +
+          '`taste-check judge --emit` and `--verdict` to let an agent carry the call.',
+      ],
+      failOn,
+    );
+  }
+
+  const reply = runCommand(command, prepared.images, prepared.prompt, cwd);
+  if (!reply.ok) return empty([reply.reason], failOn);
+  return gradeVerdict(reply.stdout, prepared, config);
 }

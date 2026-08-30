@@ -8,6 +8,7 @@
  * passing a moment earlier and demands that the plant is caught.
  */
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -20,7 +21,7 @@ import { load, validate } from '../src/config.mjs';
 import { run } from '../src/index.mjs';
 import { failed, toText } from '../src/report.mjs';
 import { classesOf, openTags } from '../src/treatments.mjs';
-import { buildPrompt, checklistLines, extractJson, runJudge } from '../src/judge.mjs';
+import { buildPrompt, checklistLines, extractJson, gradeVerdict, prepareJudge, runJudge } from '../src/judge.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURE = join(HERE, 'fixture');
@@ -599,6 +600,64 @@ describe('the judge', () => {
     );
     assert.equal(failed([result]), true);
     assert.match(result.problems[0], /no checklist lines/);
+  });
+
+  test('an agent can carry the call, and gets graded identically', () => {
+    // --emit and --verdict exist so an agent can spawn a genuinely fresh
+    // context instead of shelling out to a second copy of itself. The grading
+    // must not be softer for taking that route.
+    const config = { checklist: 'checklist.md', shots: ['shots/*.png'], failOn: 'never' };
+    const prepared = prepareJudge(config, DIR);
+    assert.equal(prepared.ok, true);
+    assert.equal(prepared.entries.length, 3);
+    assert.match(prepared.prompt, /looking at these images for the first time/);
+    assert.equal(prepared.relativeImages.length, 2);
+
+    // The same replies the stub produces, graded without a command.
+    const reply = (mode) => {
+      const previous = process.env.STUB;
+      process.env.STUB = mode;
+      try {
+        return execFileSync(process.execPath, [join(DIR, 'stub.mjs')], { input: '', encoding: 'utf8' });
+      } finally {
+        if (previous === undefined) delete process.env.STUB;
+        else process.env.STUB = previous;
+      }
+    };
+
+    const clean = gradeVerdict(reply('clean'), prepared, config);
+    assert.deepEqual(clean.problems, []);
+    assert.equal(failed([clean]), false);
+
+    const skipped = gradeVerdict(reply('skipped'), prepared, config);
+    assert.equal(failed([skipped]), true, 'a dropped line must fail on this route too');
+    assert.ok(skipped.problems.some((p) => p.includes('did not answer')));
+
+    const invented = gradeVerdict(reply('invented'), prepared, config);
+    assert.equal(failed([invented]), true);
+  });
+
+  test('no command is needed for the agent route, but the shell route says so', () => {
+    const config = { checklist: 'checklist.md', shots: ['shots/*.png'] };
+    // Valid config: command is optional now.
+    assert.deepEqual(validate({ judge: config }), []);
+    // And running the shell route without one explains itself rather than crashing.
+    const result = runJudge(config, DIR);
+    assert.equal(failed([result]), true);
+    assert.match(result.problems[0], /judge.command is not set/);
+  });
+
+  test('the bundled skill ships, and contains no design rules', () => {
+    const skill = readFileSync(join(HERE, '..', 'skills', 'taste-check-judge', 'SKILL.md'), 'utf8');
+    assert.match(skill, /^---\nname: taste-check-judge/, 'a skill needs its frontmatter');
+    assert.match(skill, /--emit/);
+    assert.match(skill, /--verdict/);
+    // The mechanism is the point: a fresh context, not this one.
+    assert.match(skill, /You are the transport, not the judge/);
+    // And the same prohibition the framing itself is held to.
+    for (const word of ['contrast ratio', 'spacing', 'gradient', 'rounded', 'font size']) {
+      assert.ok(!skill.toLowerCase().includes(word), `the skill must not carry a rule about ${word}`);
+    }
   });
 
   test('the shipped configs are valid and carry no design rules', () => {

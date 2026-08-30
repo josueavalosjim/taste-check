@@ -9,6 +9,7 @@
  */
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -109,6 +110,72 @@ describe('the CLI', () => {
       const r = run(['judge', '-c', judgeCfg], { STUB: mode });
       assert.equal(r.status, 1, `${mode} should exit 1`);
       assert.match(r.stdout, /ERROR/, mode);
+    }
+  });
+
+  test('--emit prints a prompt and exits 0 without asking anything', () => {
+    const r = run(['judge', '--emit', '-c', judgeCfg]);
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /looking at these images for the first time/);
+    assert.match(r.stdout, /Every element on the screen is doing a job/);
+  });
+
+  test('--emit still refuses when there is nothing to look at', () => {
+    // A prompt for zero screenshots would get a confident verdict about
+    // nothing, so the preconditions are enforced before the prompt is handed
+    // over rather than after the answer comes back.
+    const r = run(['judge', '--emit', '-c', join(FIXTURE, 'judge', 'no-shots.config.json')]);
+    assert.equal(r.status, 1);
+    assert.match(r.stdout, /no screenshots matched/);
+  });
+
+  test('--verdict grades a reply from stdin, the same way a command is graded', () => {
+    const reply = spawnSync(process.execPath, [join(FIXTURE, 'judge', 'stub.mjs')], {
+      input: '',
+      encoding: 'utf8',
+      env: { ...process.env, STUB: 'fail' },
+    }).stdout;
+
+    const advisory = spawnSync(process.execPath, [BIN, 'judge', '--verdict', '-', '-c', judgeCfg], {
+      input: reply,
+      encoding: 'utf8',
+    });
+    assert.equal(advisory.status, 0, advisory.stderr);
+    assert.match(advisory.stdout, /NOTE/);
+
+    const blocking = spawnSync(process.execPath, [BIN, 'judge', '--verdict', '-', '-c', blockingCfg], {
+      input: reply,
+      encoding: 'utf8',
+    });
+    assert.equal(blocking.status, 1);
+  });
+
+  test('--verdict catches a reply that dropped a line', () => {
+    const reply = spawnSync(process.execPath, [join(FIXTURE, 'judge', 'stub.mjs')], {
+      input: '',
+      encoding: 'utf8',
+      env: { ...process.env, STUB: 'skipped' },
+    }).stdout;
+    const graded = spawnSync(process.execPath, [BIN, 'judge', '--verdict', '-', '-c', judgeCfg], {
+      input: reply,
+      encoding: 'utf8',
+    });
+    assert.equal(graded.status, 1);
+    assert.match(graded.stdout, /did not answer/);
+  });
+
+  test('--skill prints a path to a file that exists', () => {
+    const r = run(['judge', '--skill']);
+    assert.equal(r.status, 0);
+    assert.ok(existsSync(r.stdout.trim()), r.stdout);
+    assert.match(readFileSync(r.stdout.trim(), 'utf8'), /name: taste-check-judge/);
+  });
+
+  test('--emit and --verdict belong to judge alone', () => {
+    for (const args of [['--emit', '-c', judgeCfg], ['runtime', '--verdict', '-', '-c', judgeCfg], ['judge', '--emit', '--verdict', '-', '-c', judgeCfg]]) {
+      const r = run(args);
+      assert.equal(r.status, 1, args.join(' '));
+      assert.ok(r.stderr.trim().length);
     }
   });
 

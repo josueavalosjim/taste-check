@@ -290,6 +290,35 @@ inside a tool is somebody else's taste with the tool's authority behind it.
 Checklist lines are list items in your file; a heading or a paragraph is prose
 and is not judged.
 
+### Letting an agent carry the call
+
+A shell command is one way to reach a model and a poor one for an agent, which
+is already a model and can spawn a genuinely fresh context of its own instead
+of shelling out to a second copy of itself. So the judge splits in two:
+
+```bash
+taste-check judge --emit              # the prompt, and nothing else happens
+taste-check judge --verdict reply.json  # or - for stdin
+```
+
+`--emit` prints the prompt and stops. It still refuses when there are no
+screenshots or no checklist, because a prompt for nothing gets a confident
+verdict about nothing. `--verdict` checks the reply against the checklist
+exactly as the shell route does: every line answered once, no invented lines,
+valid verdicts. Taking the agent route does not buy a softer grading.
+
+`judge.command` is optional when you use this. There is a skill for it:
+
+```bash
+taste-check judge --skill    # prints the path to SKILL.md
+```
+
+Copy it wherever your agent keeps skills. It carries the mechanism, which is
+that the agent must not be the judge: it is reading the session that built the
+thing, and the reasoning that justified each choice is still sitting there
+ready to justify it again. It carries no design rules, for the same reason
+nothing else here does.
+
 ### What the exit code means here
 
 A verdict is an opinion, so a `fail` prints as a note and the command exits 0.
@@ -328,7 +357,7 @@ from anywhere.
 | `judge.checklist` | Your checklist file. List items are judged, prose is not. |
 | `judge.shots` | Screenshots to hand the judge. Matching nothing is a failure. |
 | `judge.shotCommand` | Optional command run first to produce those screenshots. |
-| `judge.command` | The model command. Prompt on stdin, image paths as arguments. |
+| `judge.command` | The model command. Prompt on stdin, image paths as arguments. Optional if an agent carries the call. |
 | `judge.failOn` | `"never"` (default) or `"fail"`. Whether a verdict blocks. |
 | `runtime.url` | The page to measure. A `file://` URL works. |
 | `runtime.endpoint` | An existing CDP endpoint. Given one, taste-check connects rather than launching, and never closes a browser it did not start. |
@@ -452,8 +481,6 @@ invisible to it.
 Not built. Written down so the shape is clear.
 
 **YAML configs**, once there is a reason to take on a parser.
-
-**A way to run the judge from an agent skill**, not only from a shell.
 
 **`lab()` and `lch()`**, which need the D50 white point and a chromatic
 adaptation step that `oklch()` does not. Completeness rather than reach, so

@@ -4,7 +4,7 @@
  */
 export { runContrast } from './contrast.mjs';
 export { runTreatments } from './treatments.mjs';
-export { runJudge, buildPrompt, checklistLines, extractJson } from './judge.mjs';
+export { runJudge, prepareJudge, gradeVerdict, buildPrompt, checklistLines, checklistEntries, extractJson } from './judge.mjs';
 export { runRuntime } from './runtime.mjs';
 export { connect, findBrowser } from './cdp.mjs';
 export { load, validate } from './config.mjs';

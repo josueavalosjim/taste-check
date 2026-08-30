@@ -1,6 +1,6 @@
 {
   "name": "@josueavalosjim/taste-check",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Design review in CI with a line down the middle: measured checks that gate the build (WCAG contrast from your tokens or from a real rendered page, one-off values in your markup) and a fresh-eyes model judge whose verdicts stay advisory. Zero dependencies. Ships no design rules of its own.",
   "keywords": [
     "accessibility",
@@ -34,6 +34,7 @@
     "bin",
     "src",
     "schema",
+    "skills",
     "README.md",
     "LICENSE"
   ],
