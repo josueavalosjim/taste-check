@@ -89,12 +89,65 @@ export function expressionAttr(attrs, attr) {
 }
 
 /**
+ * Every string literal inside an expression, with its offset in the source.
+ *
+ * A walker rather than a regex, for the same reason the tag scanner is one.
+ * The interesting case is a template literal: the text around a `${...}` hole
+ * is literal class names, the hole itself is not, but the hole very often
+ * *contains* more literals. Blanking the hole loses them, and a class name
+ * that the checker cannot see is a class name that ships unapproved. So the
+ * hole is recursed into instead, with brace depth tracked so a nested object
+ * or a nested template does not end it early.
+ */
+function scanLiterals(text, base, out) {
+  let i = 0;
+  while (i < text.length) {
+    const c = text[i];
+    if (c === "'" || c === '"') {
+      let j = i + 1;
+      while (j < text.length && text[j] !== c) j += text[j] === '\\' ? 2 : 1;
+      out.push({ raw: text.slice(i + 1, j), at: base + i + 1 });
+      i = j + 1;
+      continue;
+    }
+    if (c === '`') {
+      let j = i + 1;
+      let segment = j;
+      while (j < text.length && text[j] !== '`') {
+        if (text[j] === '\\') {
+          j += 2;
+          continue;
+        }
+        if (text[j] === '$' && text[j + 1] === '{') {
+          out.push({ raw: text.slice(segment, j), at: base + segment });
+          let depth = 1;
+          let k = j + 2;
+          for (; k < text.length && depth > 0; k += 1) {
+            if (text[k] === '{') depth += 1;
+            else if (text[k] === '}') depth -= 1;
+          }
+          scanLiterals(text.slice(j + 2, k - 1), base + j + 2, out);
+          j = k;
+          segment = j;
+          continue;
+        }
+        j += 1;
+      }
+      out.push({ raw: text.slice(segment, j), at: base + segment });
+      i = j + 1;
+      continue;
+    }
+    i += 1;
+  }
+  return out;
+}
+
+/**
  * Every class name the element can possibly carry.
  *
  * For an expression we take the union of every string literal inside it
- * rather than trying to evaluate it. A template literal's `${...}` holes are
- * blanked: the text around a hole is still literal class names, the hole is
- * not.
+ * rather than trying to evaluate it. A ternary contributes both of its
+ * branches on purpose: the question is whether a class can appear at all.
  */
 export function classesOf(attrs) {
   const found = [];
@@ -110,11 +163,7 @@ export function classesOf(attrs) {
 
   const expr = expressionAttr(attrs, 'className') ?? expressionAttr(attrs, 'class');
   if (!expr) return found;
-  for (const m of expr.text.matchAll(/'([^']*)'|"([^"]*)"|`([^`]*)`/g)) {
-    const raw = m[1] ?? m[2] ?? m[3] ?? '';
-    const offset = expr.at + m.index + 1;
-    collect(raw.replace(/\$\{[^}]*\}/g, (hole) => ' '.repeat(hole.length)), offset);
-  }
+  for (const { raw, at } of scanLiterals(expr.text, expr.at, [])) collect(raw, at);
   return found;
 }
 

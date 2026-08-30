@@ -270,6 +270,25 @@ describe('planted violations', () => {
     );
   });
 
+  test('a class hidden inside a template literal hole is caught', () => {
+    // The regression this exists for: blanking a `${...}` hole instead of
+    // reading into it hides any class name written there, and a class the
+    // checker cannot see is a class that ships unapproved.
+    const dir = plantable();
+    const markup = join(dir, 'markup', 'ok.jsx');
+    writeFileSync(
+      markup,
+      readFileSync(markup, 'utf8').replace("'card__tag--on' : ''", "'card__tag--on' : 'buried'"),
+    );
+
+    const { config } = loadConfig('pass.config.json');
+    const failures = byName(run(config, dir), 'treatments').failures;
+    assert.ok(
+      failures.some((f) => f.includes('"buried"')),
+      `a class inside a template hole was not seen: ${failures.join('\n') || '(no failures at all)'}`,
+    );
+  });
+
   test('a file pattern matching nothing fails instead of reporting clean', () => {
     const { config, dir } = loadConfig('pass.config.json');
     const results = run({ treatments: { ...config.treatments, files: ['markup/nothing-here/*.jsx'] } }, dir);
