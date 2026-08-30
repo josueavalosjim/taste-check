@@ -1,5 +1,5 @@
 {
-  "name": "taste-check",
+  "name": "@josueavalosjim/taste-check",
   "version": "0.1.0",
   "description": "Deterministic design-system checks: WCAG contrast over your own tokens, and a one-off value linter over your own approved list. No palette, no class list, no opinions shipped.",
   "keywords": [
@@ -41,6 +41,9 @@
   },
   "engines": {
     "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {}
 }

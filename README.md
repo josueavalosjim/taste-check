@@ -8,7 +8,13 @@ It has no opinion about which colours you use or which classes are allowed.
 You supply both.
 
 ```bash
-npx taste-check --config tastecheck.config.json
+npx @josueavalosjim/taste-check --config tastecheck.config.json
+```
+
+Installed as a dependency, the command is just `taste-check`:
+
+```bash
+npm i -D @josueavalosjim/taste-check
 ```
 
 ```
