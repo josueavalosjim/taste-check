@@ -79,11 +79,44 @@ describe('colour maths', () => {
     }
   });
 
+  // Every expected value below was read out of a browser with
+  // getComputedStyle, not derived from the same formulas the parser uses.
+  // Checking a conversion against the maths that produced it proves nothing.
+  const BROWSER = {
+    'hsl(210 40% 96%)': [241, 245, 249, 1],
+    'hsl(0, 100%, 50%)': [255, 0, 0, 1],
+    'hsla(120, 100%, 25%, 0.5)': [0, 128, 0, 0.5],
+    'hsl(210deg 40% 96% / 50%)': [241, 245, 249, 0.5],
+    'hsl(210 40% 96% / 0.25)': [241, 245, 249, 0.25],
+    'hwb(210 40% 4%)': [102, 173, 245, 1],
+    'hwb(120 0% 0%)': [0, 255, 0, 1],
+    'hwb(60 30% 20%)': [204, 204, 77, 1],
+    // Whiteness and blackness summing past 1 drops the hue entirely and
+    // leaves the grey at w / (w + b). Every other input hides this case.
+    'hwb(0 60% 60%)': [128, 128, 128, 1],
+    // Hue is an angle, so it wraps in both directions.
+    'hsl(480 100% 50%)': [0, 255, 0, 1],
+    'hsl(-240 100% 50%)': [0, 255, 0, 1],
+    // All four angle units name the same hue.
+    'hsl(0.5turn 50% 50%)': [64, 191, 191, 1],
+    'hsl(3.14159rad 50% 50%)': [64, 191, 191, 1],
+    'hsl(200grad 50% 50%)': [64, 191, 191, 1],
+  };
+
+  for (const [text, want] of Object.entries(BROWSER)) {
+    test(`${text} matches the browser`, () => {
+      const got = parseColor(text);
+      assert.equal(got.ok, true, got.reason);
+      assert.deepEqual(got.rgba.slice(0, 3).map(Math.round), want.slice(0, 3));
+      assert.ok(Math.abs(got.rgba[3] - want[3]) < 0.005, `alpha ${got.rgba[3]} != ${want[3]}`);
+    });
+  }
+
   test('an unparseable colour is an error, never a silent pass', () => {
-    for (const text of ['oklch(0.7 0.1 250)', 'color-mix(in srgb, red, blue)', 'chartreuse', '']) {
+    for (const text of ['lab(54% 81 70)', 'color-mix(in srgb, red, blue)', 'chartreuse', '']) {
       assert.equal(parseColor(text).ok, false, `${text} should not parse`);
     }
-    assert.match(parseColor('hsl(0 0% 0%)').reason, /not supported in v1/);
+    assert.match(parseColor('oklch(0.7 0.1 250)').reason, /not supported in v1/);
   });
 });
 

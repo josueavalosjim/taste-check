@@ -25,7 +25,7 @@ const NAMED = {
 };
 
 /** Formats deliberately not supported in v1, named so the error is useful. */
-const KNOWN_UNSUPPORTED = ['hsl', 'hsla', 'hwb', 'lab', 'lch', 'oklab', 'oklch', 'color-mix', 'color'];
+const KNOWN_UNSUPPORTED = ['lab', 'lch', 'oklab', 'oklch', 'color-mix', 'color'];
 
 const NUMBER = /^[+-]?(?:\d+\.?\d*|\.\d+)%?$/;
 
@@ -48,12 +48,55 @@ function alpha(token) {
 
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
 
+const TURNS = { deg: 1 / 360, grad: 1 / 400, rad: 1 / (2 * Math.PI), turn: 1 };
+
+/** A hue token to a fraction of a turn, or null. A bare number is degrees. */
+function hue(token) {
+  const m = token.match(/^([+-]?(?:\d+\.?\d*|\.\d+))(deg|grad|rad|turn)?$/);
+  if (!m) return null;
+  const turns = parseFloat(m[1]) * TURNS[m[2] ?? 'deg'];
+  // Wrap into [0, 1). Hue is an angle, so 480deg and -240deg are both 120deg.
+  return ((turns % 1) + 1) % 1;
+}
+
+/** A percentage token to 0-1, or null. */
+function percent(token) {
+  if (!/^[+-]?(?:\d+\.?\d*|\.\d+)%$/.test(token)) return null;
+  return parseFloat(token) / 100;
+}
+
+/** HSL to sRGB. h in turns, s and l in 0-1. */
+function hslToRgb(h, s, l) {
+  const f = (n) => {
+    const k = (n + h * 12) % 12;
+    const a = s * Math.min(l, 1 - l);
+    return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+  };
+  return [f(0) * 255, f(8) * 255, f(4) * 255];
+}
+
+/**
+ * HWB to sRGB. h in turns, w and b in 0-1.
+ *
+ * When whiteness and blackness sum to 1 or more the hue drops out entirely and
+ * the result is the grey at w / (w + b). Missing that case is the usual bug,
+ * because every other input hides it.
+ */
+function hwbToRgb(h, w, b) {
+  if (w + b >= 1) {
+    const grey = (w / (w + b)) * 255;
+    return [grey, grey, grey];
+  }
+  return hslToRgb(h, 1, 0.5).map((c) => (c / 255) * (1 - w - b) * 255 + w * 255);
+}
+
 /**
  * Parse a CSS colour into [r, g, b, a] with r/g/b in 0-255 and a in 0-1.
  *
- * Supported: #rgb, #rgba, #rrggbb, #rrggbbaa; rgb()/rgba() in both the legacy
- * comma syntax and the modern space syntax with a slash alpha; and the three
- * named colours above. Anything else fails loudly.
+ * Supported: #rgb, #rgba, #rrggbb, #rrggbbaa; rgb(), rgba(), hsl(), hsla()
+ * and hwb(), each in both the legacy comma syntax and the modern space syntax
+ * with a slash alpha; and the three named colours above. Anything else fails
+ * loudly.
  */
 export function parseColor(input) {
   if (typeof input !== 'string') return err('not a string');
@@ -81,6 +124,40 @@ export function parseColor(input) {
   const fn = text.match(/^([a-zA-Z-]+)\s*\(([\s\S]*)\)$/);
   if (fn) {
     const name = fn[1].toLowerCase();
+    const polar = name === 'hsl' || name === 'hsla' || name === 'hwb';
+    if (polar) {
+      // Same two syntaxes as rgb(): comma separated, or space separated with a
+      // slash alpha. Split on the slash first so a modern alpha is never read
+      // as a fourth component.
+      const [head, ...tail] = fn[2].split('/');
+      if (tail.length > 1) return err(`"${text}" has more than one slash`);
+      const parts = head.trim().split(/[,\s]+/).filter(Boolean);
+      const alphaToken = tail.length ? tail[0].trim() : parts[3];
+      if (parts.length < 3) return err(`"${text}" needs a hue and two components`);
+      if (tail.length === 0 && parts.length > 4) return err(`"${text}" has too many components`);
+      if (tail.length === 1 && parts.length !== 3) return err(`"${text}" has too many components`);
+
+      const h = hue(parts[0]);
+      if (h === null) return err(`"${text}" has a hue that is not an angle`);
+      // hsl() allows bare numbers for s and l in the modern syntax; hwb()
+      // requires percentages, but accepting a bare number there costs nothing
+      // and refusing it would only ever reject something a browser renders.
+      const one = percent(parts[1]) ?? (NUMBER.test(parts[1]) ? parseFloat(parts[1]) / 100 : null);
+      const two = percent(parts[2]) ?? (NUMBER.test(parts[2]) ? parseFloat(parts[2]) / 100 : null);
+      if (one === null || two === null) return err(`"${text}" has a component that is not a number`);
+
+      let a = 1;
+      if (alphaToken !== undefined) {
+        const parsed = alpha(alphaToken);
+        if (parsed === null) return err(`"${text}" has an alpha that is not a number`);
+        a = parsed;
+      }
+      const rgb =
+        name === 'hwb'
+          ? hwbToRgb(h, clamp(one, 0, 1), clamp(two, 0, 1))
+          : hslToRgb(h, clamp(one, 0, 1), clamp(two, 0, 1));
+      return ok([...rgb.map((c) => clamp(c, 0, 255)), clamp(a, 0, 1)]);
+    }
     if (name !== 'rgb' && name !== 'rgba') {
       const hint = KNOWN_UNSUPPORTED.includes(name)
         ? `${name}() is not supported in v1. Convert the token to hex or rgb(), or open an issue.`
