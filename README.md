@@ -235,6 +235,14 @@ in a real browser, as an optional peer dependency so the core stays free of one.
 npm test
 ```
 
+Releases are automated. `npm run release` runs the suite, bumps the patch
+version, tags it and pushes. The tag triggers a workflow that runs the suite
+again, checks both fixtures still produce the exit codes they should, verifies
+the tag matches `package.json`, and publishes. Publishing uses npm's trusted
+publisher over OIDC, so no npm token is stored in the repository and every
+release carries a provenance attestation. For a minor or major bump, run
+`npm version minor` or `npm version major` and `git push --follow-tags`.
+
 34 tests. Most of them plant a violation into a fixture that was passing a
 moment earlier and demand it gets caught: a token darkened below its floor, an
 unapproved class added to a clean file, a class buried in a template literal

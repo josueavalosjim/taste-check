@@ -1,0 +1,50 @@
+name: publish
+
+# Tag a version and it ships. No npm token lives here: publishing runs over
+# OIDC against a trusted publisher configured on npmjs.com, so there is no
+# long-lived credential to leak and no 2FA prompt to answer.
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required for OIDC. Without it, npm falls back to a token.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      # No install step: the package has no dependencies and the suite runs on
+      # node builtins. If that ever stops being true this will fail loudly.
+      - run: npm test
+
+      # The suite passing is not proof the checks fire. Run the tool against
+      # both fixtures and compare exit codes, which a reworded message cannot
+      # quietly satisfy.
+      - name: the fixtures still prove the checks fire
+        run: |
+          node bin/taste-check.mjs --config test/fixture/pass.config.json
+          if node bin/taste-check.mjs --config test/fixture/fail.config.json; then
+            echo "the dirty fixture passed, so the checks are not firing"
+            exit 1
+          fi
+
+      # A tag that disagrees with package.json publishes a version nobody can
+      # trace back to a commit. npm retires a version number permanently, so
+      # this has to be caught before the publish, not after.
+      - name: tag matches package.json
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "tag v$tag does not match package.json $pkg"
+            exit 1
+          fi
+
+      - run: npm publish

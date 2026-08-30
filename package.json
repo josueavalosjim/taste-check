@@ -37,7 +37,8 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "node --test \"test/**/*.test.mjs\""
+    "test": "node --test \"test/**/*.test.mjs\"",
+    "release": "npm test && npm version patch -m \"Release %s\" && git push --follow-tags"
   },
   "engines": {
     "node": ">=22"
