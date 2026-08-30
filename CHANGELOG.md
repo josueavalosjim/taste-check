@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.4.1
+
+Documentation only. No code changed.
+
+Repositioned around what the tool actually is. It was described as two
+deterministic checks in a box, which undersold the part that is hard to find
+elsewhere: it measures what can be measured and gates the build on it, asks a
+model about what cannot and keeps that advisory, and does not let either
+pretend to be the other.
+
+Adds a section naming the tools that do parts of this better, because several
+do. If enforcing tokens in code is your whole problem, @lapidist/design-lint
+parses properly rather than scanning and autofixes. If you want good design
+opinions supplied rather than writing your own checklist, the agent skills that
+ship a hundred of them are the better fit. If you run one accessibility tool,
+run axe against a real page.
+
+Future work reordered. The runtime mode moved to the front: an advisory judge
+is only worth listening to if the measured half beside it is genuinely
+measured, and reading a token file is the weaker version of that.
+
 ## 0.4.0
 
 **`oklch()` and `oklab()` parse.** Both syntaxes, percentage or number for

@@ -1,11 +1,12 @@
 {
   "name": "@josueavalosjim/taste-check",
-  "version": "0.4.0",
-  "description": "Deterministic design-system checks: WCAG contrast over your own tokens, and a one-off value linter over your own approved list. No palette, no class list, no opinions shipped.",
+  "version": "0.4.1",
+  "description": "Design review in CI with a line down the middle: measured checks that gate the build (WCAG contrast over your own tokens, one-off values in your own markup) and a fresh-eyes model judge whose verdicts stay advisory. Ships no design rules of its own.",
   "keywords": [
     "accessibility",
     "cli",
     "contrast",
+    "design-review",
     "design-system",
     "design-tokens",
     "lint",

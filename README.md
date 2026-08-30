@@ -1,20 +1,25 @@
 # taste-check
 
-Two deterministic checks for a design system you already have. It computes WCAG
-contrast ratios from your own custom properties, and flags class names and
-literal values that are not on your own approved list.
+Design review in CI, with a line down the middle of it.
 
-It has no opinion about which colours you use or which classes are allowed.
-You supply both.
+Some of design review is measurable. Contrast ratios, values that should have
+been tokens, class names nobody approved. taste-check measures those and fails
+your build on them.
 
-```bash
-npx @josueavalosjim/taste-check --config tastecheck.config.json
-```
+The rest is judgment, and it cannot be measured. For that it sends your
+screenshots and your checklist to a model, and reports what comes back as an
+opinion rather than a result.
 
-Installed as a dependency, the command is just `taste-check`:
+Keeping those two apart is the whole design. A tool that blurs them either
+blocks your pipeline on a coin flip or quietly downgrades a real failure to a
+suggestion.
 
 ```bash
 npm i -D @josueavalosjim/taste-check
+```
+
+```bash
+npx @josueavalosjim/taste-check
 ```
 
 ```
@@ -28,20 +33,37 @@ treatments FAILED
   FAIL  src/Promo.jsx:8 inline value "#ff0055" on <a> is a one-off. Use a token, or add it to approvedValues.
 ```
 
+```bash
+npx @josueavalosjim/taste-check judge
+```
+
+```
+judge ok, 5 lines against 2 screenshots, 1 to read
+  NOTE  fail   Nothing important is cut off at the edge: the third card runs
+                past the right edge of the frame at roughly x=798 of 800.
+```
+
 Zero runtime dependencies. Node 22 or newer.
 
 ## Why this exists
 
-Most quality tooling checks compliance and has no point of view. axe tells you
-an element fails 4.5:1. It cannot tell you that your borders answer to 3:1
-while your captions answer to 4.5:1, because that distinction is yours, not the
-spec's.
+Linters have a gate and no taste. They enforce what someone could write down
+as a rule, which is why they can tell you an element fails 4.5:1 but not that
+your borders answer to 3:1 while your captions answer to 4.5:1. That
+distinction is yours, not the spec's.
 
-Design systems drift in a specific way: a value gets hardcoded because the
-token did not quite fit, a class gets invented because nobody knew the approved
-one existed. Written rules do not stop it. A rule in a stylesheet comment is
-enforced by people re-reading stylesheets, and nobody re-reads a stylesheet
-while writing markup. So the rules get a check that runs instead.
+The newer AI design reviewers have taste and no gate. They will tell you what
+is wrong with a screen, in prose, in a chat window, and some of them arrive
+with a few hundred opinions already loaded about what good looks like.
+
+Both halves are useful and they need to stay separable. Run the same model
+twice over the same unchanged screen and you can get two different answers,
+which is fine for advice and disqualifying for a build gate. So the measured
+half here gates, the judged half does not, and the tool will not let you
+confuse one for the other by accident.
+
+It also ships no design rules of its own. Not a palette, not a class list, not
+a contrast floor, not a checklist. You supply all of it.
 
 ## What counts as a failure
 
@@ -57,6 +79,12 @@ Each of these exits 1 rather than passing quietly:
 
 A check that cannot fail is worse than no check, because it goes green and gets
 quoted as evidence.
+
+The judge is held to the same rule from the other side. Its verdicts never
+affect the exit code by default, but a judge that could not run does: no
+screenshots, a command that died, a reply that was not JSON or that skipped a
+checklist line. "Did not run" and "found nothing" must not print the same
+thing.
 
 ## The contrast check
 
@@ -252,6 +280,33 @@ taste-check judge [options]   Ask a fresh-eyes judge about your screenshots
 Exit code is 1 if any check fails, 0 if every check ran and passed. The judge
 plays by the rules in its own section above.
 
+## Where it sits next to other tools
+
+This is a small tool with a narrow claim, and several of these are better than
+it at the thing they do. Reach for them.
+
+**axe, pa11y.** They run against a real rendered page and catch far more than
+contrast. taste-check checks pairs you declare in a config, before a page
+exists and without a browser. Use both. If you only run one accessibility
+tool, run axe.
+
+**stylelint, eslint.** General code quality, with an enormous rule ecosystem.
+Nothing here replaces them.
+
+**@lapidist/design-lint.** More thorough than taste-check on the token and
+component side: it parses properly rather than scanning, knows about
+frameworks, autofixes, and manages deprecations. If enforcing tokens in code is
+the whole of your problem, it is the better fit.
+
+**Checklist Design and similar agent skills.** They arrive with a hundred or
+more published checklists and review conversationally. If you want good
+opinions supplied, take theirs. taste-check supplies none on purpose and runs
+in CI with an exit code instead.
+
+What is left, and the reason this exists: nothing above draws a line between
+the part that can gate a build and the part that cannot. The linters have no
+judgment, the judges have no gate.
+
 ## What this does not do
 
 Read this before trusting a green run.
@@ -288,12 +343,21 @@ invisible to it.
 Not built. Written down so the shape is clear.
 
 **A runtime mode**, closing the gap named above by measuring `getComputedStyle`
-in a real browser, as an optional peer dependency so the core stays free of one.
+in a real browser, as an optional peer dependency so the core stays free of
+one. This is the one that matters most. An advisory judge is only worth
+listening to if the measured half beside it is genuinely measured, and reading
+a token file is the weaker version of that.
 
 **YAML configs**, once there is a reason to take on a parser.
 
+**SARIF output**, so findings land in a code scanning tab rather than only in
+a log.
+
+**A way to run the judge from an agent skill**, not only from a shell.
+
 **`lab()` and `lch()`**, which need the D50 white point and a chromatic
-adaptation step that `oklch()` does not. Worth doing the same way: derive it,
+adaptation step that `oklch()` does not. Completeness rather than reach, so
+it sits behind the others. Worth doing the same way when it happens: derive it,
 then check every case against a browser rather than trusting the matrices.
 
 ## Development
