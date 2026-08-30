@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.1
+
+Stop leaving a temp directory behind on every runtime run.
+
+Teardown killed the browser and deleted its profile in the same breath, which
+loses a race with Chrome while it is still flushing that profile. The removal
+was written as best effort so it would never take down a successful run, and
+best effort turned out to mean it failed nearly every time: 52 directories
+after an afternoon of testing. It now waits for the browser to actually exit,
+escalates to SIGKILL if it will not, and then removes the profile. Still
+incapable of throwing.
+
 ## 0.5.0
 
 **`taste-check runtime` measures a rendered page.** It opens the URL in a

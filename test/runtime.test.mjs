@@ -46,7 +46,7 @@ function fakePage(measurements, log = []) {
     async removeNewDocumentScript(id) {
       log.push(`remove ${id}`);
     },
-    close() {
+    async close() {
       log.push('close');
     },
   };

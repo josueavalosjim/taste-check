@@ -147,7 +147,7 @@ export async function runRuntime(config, cwd, { connect: open = connect } = {}) 
   } catch (error) {
     problems.push(`the page could not be measured: ${error.message}`);
   } finally {
-    page.close();
+    await page.close();
   }
 
   return {

@@ -224,11 +224,18 @@ export async function connect({ endpoint, browserPath, timeout = 15000 }) {
       return result.value;
     },
     /**
-     * Best effort, and deliberately incapable of throwing. Teardown failing
-     * must never take down a run whose measurements already succeeded, and a
-     * temp directory the browser is still writing into is not worth a crash.
+     * Waits for the browser to actually exit before removing its profile.
+     *
+     * Killing and deleting in the same breath loses a race with Chrome, which
+     * is still flushing its profile when the signal arrives. Best effort was
+     * not good enough: it left a directory behind on nearly every run, and a
+     * tool that litters the temp directory every time CI runs is not one to
+     * inflict on anybody.
+     *
+     * Still incapable of throwing. Teardown must never take down a run whose
+     * measurements already succeeded.
      */
-    close() {
+    async close() {
       try {
         ws.close();
       } catch {
@@ -236,7 +243,20 @@ export async function connect({ endpoint, browserPath, timeout = 15000 }) {
       }
       if (!child) return;
       try {
-        child.kill();
+        if (child.exitCode === null && child.signalCode === null) {
+          const exited = new Promise((resolve) => child.once('exit', resolve));
+          child.kill();
+          // SIGTERM is usually enough. If it is not, stop being polite.
+          const forced = new Promise((resolve) => setTimeout(resolve, 2000)).then(() => {
+            try {
+              child.kill('SIGKILL');
+            } catch {
+              /* already gone */
+            }
+            return new Promise((resolve) => setTimeout(resolve, 300));
+          });
+          await Promise.race([exited, forced]);
+        }
       } catch {
         /* already gone */
       }
