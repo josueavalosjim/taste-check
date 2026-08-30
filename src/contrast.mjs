@@ -119,6 +119,8 @@ export function runContrast(config, cwd) {
     name: 'contrast',
     samples,
     problems,
-    summary: `${samples.length} pairs across ${themes.length} ${themes.length === 1 ? 'theme' : 'themes'}`,
+    summary: `${samples.length} ${samples.length === 1 ? 'pair' : 'pairs'} across ${
+      themes.length
+    } ${themes.length === 1 ? 'theme' : 'themes'}`,
   };
 }
