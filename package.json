@@ -1,6 +1,6 @@
 {
   "name": "@josueavalosjim/taste-check",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Deterministic design-system checks: WCAG contrast over your own tokens, and a one-off value linter over your own approved list. No palette, no class list, no opinions shipped.",
   "keywords": [
     "accessibility",

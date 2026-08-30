@@ -265,10 +265,15 @@ values in your token file relate to each other the way you said they should. It
 does not prove what a visitor sees.
 
 **Only some colour formats parse.** Hex in 3, 4, 6 and 8 digits; `rgb()`,
-`rgba()`, `hsl()`, `hsla()` and `hwb()`, each in both the comma and the space
-syntax; and `white` / `black` / `transparent`. The perceptual spaces
-(`oklch()`, `lab()`, `lch()`) and `color-mix()` are not parsed yet. A value it
-cannot parse fails, so you hear about it immediately.
+`rgba()`, `hsl()`, `hsla()`, `hwb()`, `oklch()` and `oklab()`; and `white` /
+`black` / `transparent`. `lab()`, `lch()` and `color-mix()` are not parsed yet.
+A value it cannot parse fails, so you hear about it immediately.
+
+An `oklch()` outside the sRGB gamut is clipped rather than gamut-mapped, which
+is what a browser canvas does with it. That was checked rather than assumed:
+the test corpus has fifty deliberately out-of-gamut colours painted in a real
+browser and read back as pixels, and the parser agrees with all of them to
+within one channel unit.
 
 **There is no specificity resolution.** Scopes apply in the order you list
 them. If your tokens rely on `.a.b` beating `.b`, list the scopes in the order
@@ -287,9 +292,9 @@ in a real browser, as an optional peer dependency so the core stays free of one.
 
 **YAML configs**, once there is a reason to take on a parser.
 
-**The perceptual colour spaces**, `oklch()` first, which needs real colour
-space conversion and browser-checked tests rather than a formula taken on
-trust.
+**`lab()` and `lch()`**, which need the D50 white point and a chromatic
+adaptation step that `oklch()` does not. Worth doing the same way: derive it,
+then check every case against a browser rather than trusting the matrices.
 
 ## Development
 

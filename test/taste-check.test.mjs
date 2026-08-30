@@ -117,7 +117,7 @@ describe('colour maths', () => {
     for (const text of ['lab(54% 81 70)', 'color-mix(in srgb, red, blue)', 'chartreuse', '']) {
       assert.equal(parseColor(text).ok, false, `${text} should not parse`);
     }
-    assert.match(parseColor('oklch(0.7 0.1 250)').reason, /not supported in v1/);
+    assert.match(parseColor('lch(54% 107 41)').reason, /not supported in v1/);
   });
 });
 
@@ -639,5 +639,59 @@ describe('colour, against a browser', () => {
       }
     }
     assert.deepEqual(wrong, [], `${wrong.length} of ${cases.length} disagree:\n  ${wrong.join('\n  ')}`);
+  });
+});
+
+describe('oklch and oklab, against a browser', () => {
+  // Painted on a canvas in a real browser and read back as pixels, because
+  // getComputedStyle returns oklch() unchanged rather than converting it. A
+  // third of these are deliberately outside the sRGB gamut, which is how the
+  // clipping behaviour below was established rather than assumed.
+  const { cases } = JSON.parse(readFileSync(join(FIXTURE, 'browser-oklch.json'), 'utf8'));
+
+  test('the corpus covers both functions and both gamut cases', () => {
+    assert.ok(cases.length >= 200, `only ${cases.length} cases`);
+    assert.ok(cases.some(([c]) => c.startsWith('oklab(')));
+    assert.ok(cases.some(([c]) => c.includes('%')));
+    // Something had to be clipped, or the out-of-gamut half proves nothing.
+    const clipped = cases.filter(([, rgb]) => /\b(0|255)\b/.test(rgb));
+    assert.ok(clipped.length > 20, `only ${clipped.length} clipped cases`);
+  });
+
+  test('every case agrees with the browser', () => {
+    const wrong = [];
+    for (const [text, expected] of cases) {
+      const got = parseColor(text);
+      if (!got.ok) {
+        wrong.push(`${text}: parser errored, ${got.reason}`);
+        continue;
+      }
+      const want = expected.match(/\d+/g).map(Number);
+      const mine = got.rgba.slice(0, 3).map(Math.round);
+      const off = Math.max(...mine.map((c, i) => Math.abs(c - want[i])));
+      if (off > 1) wrong.push(`${text}\n     browser ${expected}\n     parser  rgb(${mine.join(', ')})`);
+    }
+    assert.deepEqual(wrong, [], `${wrong.length} of ${cases.length} disagree:\n  ${wrong.join('\n  ')}`);
+  });
+
+  test('the anchors land where they should', () => {
+    // sRGB red in OKLCH, and the achromatic ends. If a matrix were subtly
+    // wrong these would drift while the random corpus still looked close.
+    assert.deepEqual(parseColor('oklch(62.8% 0.258 29.23)').rgba.slice(0, 3).map(Math.round), [255, 0, 0]);
+    assert.deepEqual(parseColor('oklch(1 0 0)').rgba.slice(0, 3).map(Math.round), [255, 255, 255]);
+    assert.deepEqual(parseColor('oklch(0 0 0)').rgba.slice(0, 3).map(Math.round), [0, 0, 0]);
+  });
+
+  test('alpha passes through both syntaxes', () => {
+    assert.equal(parseColor('oklch(0.7 0.1 250 / 0.5)').rgba[3], 0.5);
+    assert.equal(parseColor('oklab(0.4 0.1 -0.2 / 25%)').rgba[3], 0.25);
+  });
+
+  test('lab() and lch() still fail loudly', () => {
+    for (const text of ['lab(54% 81 70)', 'lch(54% 107 41)']) {
+      const result = parseColor(text);
+      assert.equal(result.ok, false, text);
+      assert.match(result.reason, /not supported in v1/);
+    }
   });
 });

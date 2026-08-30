@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.0
+
+**`oklch()` and `oklab()` parse.** Both syntaxes, percentage or number for
+every component, all four angle units on the hue.
+
+Out-of-gamut colours are clipped rather than gamut-mapped, matching what a
+browser canvas produces. Verified rather than assumed: 200 generated colours
+painted on a canvas in a real browser and read back as pixels, 50 of them
+deliberately outside the sRGB gamut. The worst disagreement across all 200 is
+one channel unit, which is the two roundings sitting either side of the same
+real number.
+
+`lab()` and `lch()` still fail loudly. They need a D50 white point and a
+chromatic adaptation step that `oklch()` does not.
+
 ## 0.3.1
 
 **`!important` is stripped from a token value.** A token declared
