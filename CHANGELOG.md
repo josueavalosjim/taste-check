@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.9.0
+
+**`$comment` is allowed wherever an object is**, ignored, taking a string or an
+array of them.
+
+The validator rejects keys it does not know, which is right, and the cost was
+that a config had nowhere to say why it exists. Per-pair `label` carried the
+reasoning for a pair and nothing carried it for the file. Found by writing a
+real config for a real project and having nowhere to put the paragraph
+explaining what it guards.
+
+Anything that is not exactly `$comment` is still an unknown key, so the escape
+hatch does not become a hole.
+
 ## 0.8.0
 
 **`lab()` and `lch()` parse.** Both syntaxes, percentages scaled to the CIE

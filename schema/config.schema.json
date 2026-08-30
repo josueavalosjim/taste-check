@@ -89,11 +89,39 @@
                         "atRule": {
                           "type": "string",
                           "description": "Opt into declarations nested in a matching at-rule prelude, for example \"prefers-color-scheme: dark\". Conditional at-rules (@media, @supports, @container, @scope) are ignored without this. Grouping at-rules like @layer are always transparent, so you only name one to narrow a scope to it."
+                        },
+                        "$comment": {
+                          "oneOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          ],
+                          "description": "Ignored. Somewhere to write down why this config, or this pair, is the way it is."
                         }
                       }
                     }
                   ]
                 }
+              },
+              "$comment": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                ],
+                "description": "Ignored. Somewhere to write down why this config, or this pair, is the way it is."
               }
             }
           }
@@ -137,9 +165,37 @@
                 "items": {
                   "type": "string"
                 }
+              },
+              "$comment": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                ],
+                "description": "Ignored. Somewhere to write down why this config, or this pair, is the way it is."
               }
             }
           }
+        },
+        "$comment": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ],
+          "description": "Ignored. Somewhere to write down why this config, or this pair, is the way it is."
         }
       }
     },
@@ -187,6 +243,20 @@
           "items": {
             "type": "string"
           }
+        },
+        "$comment": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ],
+          "description": "Ignored. Somewhere to write down why this config, or this pair, is the way it is."
         }
       }
     },
@@ -227,6 +297,20 @@
           ],
           "default": "never",
           "description": "Whether a \"fail\" verdict affects the exit code. Defaults to never: a model's verdict is not reproducible, so it does not gate a build unless you decide it should. Independent of this, a judge that could not run always exits 1."
+        },
+        "$comment": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ],
+          "description": "Ignored. Somewhere to write down why this config, or this pair, is the way it is."
         }
       }
     },
@@ -282,6 +366,20 @@
               "waitFor": {
                 "type": "string",
                 "description": "A selector to wait for before measuring."
+              },
+              "$comment": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                ],
+                "description": "Ignored. Somewhere to write down why this config, or this pair, is the way it is."
               }
             }
           }
@@ -318,11 +416,53 @@
               "againstParent": {
                 "type": "boolean",
                 "description": "Measure against what is behind the element rather than its own background. Use when the thing being measured is a fill: measuring a fill against itself scores 1.00 and means nothing."
+              },
+              "$comment": {
+                "oneOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                ],
+                "description": "Ignored. Somewhere to write down why this config, or this pair, is the way it is."
               }
             }
           }
+        },
+        "$comment": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ],
+          "description": "Ignored. Somewhere to write down why this config, or this pair, is the way it is."
         }
       }
+    },
+    "$comment": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      ],
+      "description": "Ignored. Somewhere to write down why this config, or this pair, is the way it is."
     }
   }
 }

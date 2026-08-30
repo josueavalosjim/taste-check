@@ -480,6 +480,45 @@ describe('config validation', () => {
     assert.match(validate(config).join('\n'), /must be a positive number/);
   });
 
+  test('$comment is allowed wherever an object is, and ignored', () => {
+    const config = base();
+    config.$comment = ['Why this file exists.', 'On two lines.'];
+    config.contrast.$comment = 'Why contrast is set up this way.';
+    config.contrast.pairs[0].$comment = 'Why this pair in particular.';
+    config.contrast.themes[0].$comment = 'Why this theme.';
+    // A scope can be a bare selector or an object. Only the object form has
+    // anywhere to put a comment, which is the honest limit of this.
+    config.contrast.themes[1].scopes[1] = {
+      selector: config.contrast.themes[1].scopes[1],
+      $comment: 'Why this scope.',
+    };
+    assert.deepEqual(validate(config), []);
+
+    // And it does not change what runs: the fixture config with comments
+    // bolted on produces the same samples as without.
+    const { dir } = loadConfig('pass.config.json');
+    const plain = run(base(), dir);
+    const commented = run(config, dir);
+    assert.deepEqual(
+      byName(commented, 'contrast').samples.map((s) => s.ratio.toFixed(2)),
+      byName(plain, 'contrast').samples.map((s) => s.ratio.toFixed(2)),
+    );
+  });
+
+  test('$comment has to be prose, and a near miss is still a typo', () => {
+    const wrongType = base();
+    wrongType.$comment = 42;
+    assert.match(validate(wrongType).join('\n'), /must be a string, or an array of them/);
+
+    // The escape hatch must not become a hole: anything that is not exactly
+    // $comment is still an unknown key.
+    for (const key of ['$commnet', '$comments', 'comment', '$Comment']) {
+      const typo = base();
+      typo[key] = 'oops';
+      assert.match(validate(typo).join('\n'), /unknown key/, key);
+    }
+  });
+
   test('the shipped fixture configs are valid', () => {
     for (const name of ['pass.config.json', 'fail.config.json']) {
       assert.deepEqual(validate(JSON.parse(readFileSync(join(FIXTURE, name), 'utf8'))), [], name);

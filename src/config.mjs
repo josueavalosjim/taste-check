@@ -27,8 +27,28 @@ function stringArray(value, where, errors, { required = true } = {}) {
   return value;
 }
 
+/**
+ * Allowed anywhere an object is, and ignored.
+ *
+ * The validator rejects keys it does not know, which is right: a misspelled
+ * key that silently does nothing is a config that looks like it is working.
+ * The cost is that a config had nowhere to say why it exists. Per-pair labels
+ * carry the reasoning for a pair, and nothing carried the reasoning for the
+ * file. A format people are expected to live with for years should let them
+ * write that down.
+ */
+const COMMENT = '$comment';
+
 function rejectUnknown(object, allowed, where, errors) {
   for (const key of Object.keys(object)) {
+    if (key === COMMENT) {
+      const value = object[key];
+      const ok =
+        typeof value === 'string' ||
+        (Array.isArray(value) && value.every((v) => typeof v === 'string'));
+      if (!ok) errors.push(`${where}.${COMMENT} must be a string, or an array of them`);
+      continue;
+    }
     if (!allowed.includes(key)) {
       errors.push(`${where} has an unknown key "${key}". Allowed: ${allowed.join(', ')}.`);
     }

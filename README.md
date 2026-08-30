@@ -342,6 +342,23 @@ Point your editor at `schema/config.schema.json` for completion and inline
 docs. Paths inside a config resolve against the config file, so it can be run
 from anywhere.
 
+Unknown keys are rejected, because a misspelled key that silently does nothing
+is a config that looks like it is working. `$comment` is the exception: it is
+allowed wherever an object is, ignored, and takes a string or an array of them.
+A config you are expected to live with for years should let you write down why
+it is the way it is.
+
+```json
+{
+  "$comment": "Guards the ramp itself. The browser suite only covers tokens some selector reaches.",
+  "contrast": {
+    "pairs": [
+      { "$comment": "Documented at 6.13:1 in tokens.css.", "fg": "--ink-muted", "bg": "--bg", "min": 4.5 }
+    ]
+  }
+}
+```
+
 | Key | Meaning |
 | --- | --- |
 | `contrast.tokens` | CSS files holding the custom properties. Later files override earlier ones. |
