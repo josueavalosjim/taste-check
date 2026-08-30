@@ -33,17 +33,49 @@ function treatmentLines(result) {
   ];
 }
 
-export const linesFor = (result) =>
-  result.name === 'contrast' ? contrastLines(result) : treatmentLines(result);
+/**
+ * The judge's verdicts are opinions, so a "fail" is a note unless the config
+ * opted into blocking. Its problems are facts about whether it ran at all,
+ * and those stay errors either way.
+ */
+function judgeLines(result) {
+  const level = result.failOn === 'fail' ? 'fail' : 'note';
+  return [
+    ...result.findings
+      .filter((f) => f.verdict !== 'pass')
+      .map((f) => ({
+        level: f.verdict === 'fail' ? level : 'note',
+        text: `${f.verdict.padEnd(6)} ${f.line}${f.why ? `: ${f.why}` : ''}`,
+      })),
+    ...result.problems.map((text) => ({ level: 'error', text })),
+  ];
+}
 
-const MARK = { ok: '  ok  ', ' fail': 'FAIL  ', fail: 'FAIL  ', error: 'ERROR ' };
+export const linesFor = (result) => {
+  if (result.name === 'contrast') return contrastLines(result);
+  if (result.name === 'judge') return judgeLines(result);
+  return treatmentLines(result);
+};
+
+const MARK = { ok: '  ok  ', fail: 'FAIL  ', error: 'ERROR ', note: 'NOTE  ' };
 
 export function toText(results) {
   const out = [];
   for (const result of results) {
     const lines = linesFor(result);
-    const bad = lines.filter((l) => l.level !== 'ok');
-    if (!bad.length) {
+    const blocking = lines.filter((l) => l.level !== 'ok' && l.level !== 'note');
+    const notes = lines.filter((l) => l.level === 'note');
+
+    // Notes are worth printing and not worth failing over, so a run with only
+    // notes gets its own heading. Calling it FAILED would train people to
+    // ignore the word.
+    if (!blocking.length && notes.length) {
+      out.push(`${result.name} ok, ${result.summary}, ${notes.length} to read`);
+      for (const l of notes) out.push(`  ${MARK[l.level]}${l.text}`);
+      out.push('');
+      continue;
+    }
+    if (!blocking.length) {
       out.push(`${result.name} ok, ${result.summary}`);
       // A clean contrast run still shows its margins. Nothing else in the
       // report tells you which pair is one nudge away from failing.
@@ -58,8 +90,9 @@ export function toText(results) {
   return out.join('\n').trimEnd();
 }
 
+/** A note is something to read, not something to block on. */
 export const failed = (results) =>
-  results.some((r) => linesFor(r).some((l) => l.level !== 'ok'));
+  results.some((r) => linesFor(r).some((l) => l.level !== 'ok' && l.level !== 'note'));
 
 export function toJson(results) {
   return JSON.stringify(
@@ -68,7 +101,7 @@ export function toJson(results) {
       checks: results.map((r) => ({
         name: r.name,
         summary: r.summary,
-        ok: !linesFor(r).some((l) => l.level !== 'ok'),
+        ok: !linesFor(r).some((l) => l.level !== 'ok' && l.level !== 'note'),
         samples: r.samples ?? [],
         failures: r.failures ?? [],
         problems: r.problems ?? [],

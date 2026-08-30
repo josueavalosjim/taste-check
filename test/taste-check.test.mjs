@@ -18,8 +18,9 @@ import { parseColor, contrastRatio } from '../src/color.mjs';
 import { parseDeclarations, resolveScopes, resolveValue, unmatchedScopes } from '../src/css.mjs';
 import { load, validate } from '../src/config.mjs';
 import { run } from '../src/index.mjs';
-import { failed } from '../src/report.mjs';
+import { failed, toText } from '../src/report.mjs';
 import { classesOf, openTags } from '../src/treatments.mjs';
+import { buildPrompt, checklistLines, extractJson, runJudge } from '../src/judge.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURE = join(HERE, 'fixture');
@@ -446,6 +447,127 @@ describe('config validation', () => {
   test('the shipped fixture configs are valid', () => {
     for (const name of ['pass.config.json', 'fail.config.json']) {
       assert.deepEqual(validate(JSON.parse(readFileSync(join(FIXTURE, name), 'utf8'))), [], name);
+    }
+  });
+});
+
+describe('the judge', () => {
+  const DIR = join(FIXTURE, 'judge');
+  const LAST = 'Text is readable against what is behind it';
+
+  /** Run the judge with the stub standing in for a model command. */
+  const ask = (mode, failOn = 'never') => {
+    const previous = process.env.STUB;
+    process.env.STUB = mode;
+    try {
+      return runJudge(
+        { checklist: 'checklist.md', shots: ['shots/*.png'], command: 'node stub.mjs', failOn },
+        DIR,
+      );
+    } finally {
+      if (previous === undefined) delete process.env.STUB;
+      else process.env.STUB = previous;
+    }
+  };
+
+  test('a checklist is its list items, not its prose', () => {
+    // The fixture checklist has a heading and an explanatory paragraph. If
+    // those became checklist lines the judge would be asked to rule on them.
+    const lines = checklistLines(readFileSync(join(DIR, 'checklist.md'), 'utf8'));
+    assert.equal(lines.length, 3);
+    assert.ok(lines.every((l) => !l.startsWith('#')));
+    assert.ok(!lines.some((l) => l.includes('deliberately generic')));
+  });
+
+  test('the prompt carries the framing and the checklist, and nothing else', () => {
+    const prompt = buildPrompt(['Do the thing']);
+    assert.match(prompt, /looking at these images for the first time/);
+    assert.match(prompt, /Prefer "unsure" to a guess/);
+    assert.match(prompt, /- Do the thing/);
+    // No design opinion of ours is allowed to ride along in the framing.
+    for (const word of ['contrast', 'spacing', 'colour', 'color', 'gradient', 'font']) {
+      assert.ok(!prompt.toLowerCase().includes(word), `the framing must not mention ${word}`);
+    }
+  });
+
+  test('JSON survives a fenced reply', () => {
+    const parsed = extractJson('Sure!\n```json\n{"findings":[]}\n```\nhope that helps');
+    assert.equal(parsed.ok, true);
+    assert.deepEqual(parsed.value, { findings: [] });
+  });
+
+  test('a clean run passes', () => {
+    const result = ask('clean');
+    assert.deepEqual(result.problems, []);
+    assert.equal(result.findings.length, 3);
+    assert.ok(result.findings.every((f) => f.verdict === 'pass'));
+    assert.equal(failed([result]), false);
+  });
+
+  test('a fail verdict is advisory by default', () => {
+    const result = ask('fail');
+    assert.deepEqual(result.problems, []);
+    assert.equal(result.findings.find((f) => f.verdict === 'fail').line, 'Nothing important is cut off at the edge');
+    assert.equal(failed([result]), false, 'an opinion must not gate a build by default');
+    assert.match(toText([result]), /NOTE {2}fail/);
+  });
+
+  test('the same verdict blocks under failOn: fail', () => {
+    const result = ask('fail', 'fail');
+    assert.equal(failed([result]), true);
+    const text = toText([result]);
+    assert.match(text, /FAIL {2}fail/);
+    // "unsure" is still only a note. It is not a verdict against the screen.
+    assert.match(text, /NOTE {2}unsure/);
+  });
+
+  // Everything below is the judge failing to RUN, which is a fact rather than
+  // an opinion, so each one blocks even in advisory mode.
+  test('a skipped checklist line fails, even advisory', () => {
+    const result = ask('skipped');
+    assert.equal(failed([result]), true, 'an unanswered line must not read as a pass');
+    assert.ok(result.problems.some((p) => p.includes(`did not answer "${LAST}"`)), result.problems.join('\n'));
+  });
+
+  test('an invented checklist line fails, even advisory', () => {
+    const result = ask('invented');
+    assert.equal(failed([result]), true);
+    assert.ok(result.problems.some((p) => p.includes('not in the checklist')));
+  });
+
+  test('an unparseable reply fails, even advisory', () => {
+    const result = ask('garbage');
+    assert.equal(failed([result]), true);
+    assert.ok(result.problems.some((p) => p.includes('no JSON object')));
+  });
+
+  test('a command that exits non-zero fails, even advisory', () => {
+    const result = ask('crash');
+    assert.equal(failed([result]), true);
+    assert.ok(result.problems.some((p) => p.includes('unreachable')), result.problems.join('\n'));
+  });
+
+  test('no screenshots fails rather than passing quietly', () => {
+    const result = runJudge(
+      { checklist: 'checklist.md', shots: ['shots/none/*.png'], command: 'node stub.mjs' },
+      DIR,
+    );
+    assert.equal(failed([result]), true);
+    assert.match(result.problems[0], /no screenshots matched/);
+  });
+
+  test('a checklist with no list items fails', () => {
+    const result = runJudge(
+      { checklist: 'shots/desktop.png', shots: ['shots/*.png'], command: 'node stub.mjs' },
+      DIR,
+    );
+    assert.equal(failed([result]), true);
+    assert.match(result.problems[0], /no checklist lines/);
+  });
+
+  test('the shipped configs are valid and carry no design rules', () => {
+    for (const name of ['judge.config.json', 'blocking.config.json']) {
+      assert.deepEqual(validate(JSON.parse(readFileSync(join(DIR, name), 'utf8'))), [], name);
     }
   });
 });

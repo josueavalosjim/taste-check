@@ -131,14 +131,34 @@ function validateTreatments(treatments, errors) {
   }
 }
 
+function validateJudge(judge, errors) {
+  rejectUnknown(judge, ['checklist', 'shots', 'shotCommand', 'command', 'failOn'], 'judge', errors);
+  for (const key of ['checklist', 'command']) {
+    if (typeof judge[key] !== 'string' || !judge[key]) {
+      errors.push(`judge.${key} must be a non-empty string`);
+    }
+  }
+  if (judge.shotCommand !== undefined && (typeof judge.shotCommand !== 'string' || !judge.shotCommand)) {
+    errors.push('judge.shotCommand must be a non-empty string');
+  }
+  stringArray(judge.shots, 'judge.shots', errors);
+  if (judge.failOn !== undefined && judge.failOn !== 'never' && judge.failOn !== 'fail') {
+    errors.push(
+      `judge.failOn must be "never" or "fail", not ${JSON.stringify(judge.failOn)}. ` +
+        `It defaults to "never": a model's verdict is an opinion, so it does not gate a build ` +
+        `unless you say it should.`,
+    );
+  }
+}
+
 /** Validate a parsed config, returning a list of human-readable problems. */
 export function validate(config) {
   const errors = [];
   if (!isPlainObject(config)) return ['the config must be a JSON object'];
-  rejectUnknown(config, ['$schema', 'contrast', 'treatments'], 'the config', errors);
+  rejectUnknown(config, ['$schema', 'contrast', 'treatments', 'judge'], 'the config', errors);
 
-  if (config.contrast === undefined && config.treatments === undefined) {
-    errors.push('the config must define "contrast", "treatments", or both');
+  if (config.contrast === undefined && config.treatments === undefined && config.judge === undefined) {
+    errors.push('the config must define at least one of "contrast", "treatments" or "judge"');
   }
   if (config.contrast !== undefined) {
     if (isPlainObject(config.contrast)) validateContrast(config.contrast, errors);
@@ -147,6 +167,10 @@ export function validate(config) {
   if (config.treatments !== undefined) {
     if (isPlainObject(config.treatments)) validateTreatments(config.treatments, errors);
     else errors.push('treatments must be an object');
+  }
+  if (config.judge !== undefined) {
+    if (isPlainObject(config.judge)) validateJudge(config.judge, errors);
+    else errors.push('judge must be an object');
   }
   return errors;
 }

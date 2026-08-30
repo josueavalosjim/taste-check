@@ -8,12 +8,13 @@
  * not a quiet skip.
  */
 import { load } from '../src/config.mjs';
-import { run } from '../src/index.mjs';
+import { judge, run } from '../src/index.mjs';
 import { failed, toJson, toText } from '../src/report.mjs';
 
 const USAGE = `taste-check
 
-  taste-check [options]
+  taste-check [options]         Run the deterministic checks
+  taste-check judge [options]   Ask a fresh-eyes judge about your screenshots
 
 Options:
   -c, --config <path>   Config file (default: tastecheck.config.json)
@@ -22,10 +23,22 @@ Options:
   -h, --help            This
       --version         Print the version
 
-Exit code is 1 if any check fails, 0 if every check ran and passed.`;
+Exit code is 1 if any check fails, 0 if every check ran and passed.
+
+The judge is a separate command because it runs a model, and a model's
+verdict is not reproducible. Its verdicts print as notes and do not affect
+the exit code unless judge.failOn is set to "fail". Whether the judge ran
+at all is a different question: no screenshots, a command that failed, or
+a reply that skipped a checklist line all exit 1 either way.`;
 
 function parseArgs(argv) {
-  const options = { config: 'tastecheck.config.json', only: null, json: false };
+  const options = { config: 'tastecheck.config.json', only: null, json: false, command: 'check' };
+  // One positional, and only in first position, so a stray argument is an
+  // error rather than something silently ignored.
+  if (argv[0] === 'judge') {
+    options.command = 'judge';
+    argv = argv.slice(1);
+  }
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     const next = () => {
@@ -43,6 +56,7 @@ function parseArgs(argv) {
         throw new Error(`--only takes "contrast" or "treatments", not "${options.only}"`);
       }
     } else if (arg === '--json') options.json = true;
+    else if (!arg.startsWith('-')) throw new Error(`unknown command "${arg}"`);
     else throw new Error(`unknown option "${arg}"`);
   }
   return options;
@@ -81,7 +95,19 @@ if (!loaded.ok) {
   process.exit(1);
 }
 
-const results = run(loaded.config, loaded.dir, { only: options.only });
+if (options.command === 'judge' && options.only) {
+  die('--only applies to the deterministic checks, not to judge');
+}
+
+if (options.command === 'judge' && !loaded.config.judge) {
+  die(`${options.config} defines no "judge" block.`);
+}
+
+const results =
+  options.command === 'judge'
+    ? judge(loaded.config, loaded.dir)
+    : run(loaded.config, loaded.dir, { only: options.only });
+
 if (!results.length) {
   die(`nothing to run. ${options.config} defines no ${options.only ?? 'contrast or treatments'} check.`);
 }

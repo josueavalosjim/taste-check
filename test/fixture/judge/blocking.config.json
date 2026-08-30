@@ -1,0 +1,11 @@
+{
+  "$schema": "../../../schema/config.schema.json",
+  "judge": {
+    "checklist": "checklist.md",
+    "shots": [
+      "shots/*.png"
+    ],
+    "command": "node stub.mjs",
+    "failOn": "fail"
+  }
+}
