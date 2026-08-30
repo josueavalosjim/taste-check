@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.1.0
+## 0.1.1
 
-First release. Two checks, both driven entirely by config.
+First installable release. Two checks, both driven entirely by config.
 
 - **Contrast.** Reads CSS custom properties, resolves them per theme as an
   ordered list of scopes, follows `var()` indirection, composites translucent
@@ -17,3 +17,7 @@ colour and an unknown config key are all failures rather than skips.
 
 Known limits are listed under "What this does not do" in the README. The
 largest: this reads a token file, not a rendered page.
+
+0.1.0 was published and then withdrawn before anyone could install it. npm
+retires a version number permanently once it has been published, so the usable
+history starts here. The contents are the same.
