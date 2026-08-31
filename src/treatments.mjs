@@ -20,6 +20,7 @@
  * positive is a conversation while a false negative is the bug shipping.
  */
 import { readFileSync } from 'node:fs';
+import { lineAt } from './css.mjs';
 import { expand, label } from './files.mjs';
 
 /** Literal value shapes worth flagging when they are not on the list. */
@@ -178,8 +179,6 @@ function inlineValues(attrs) {
   return found;
 }
 
-const lineOf = (source, index) => source.slice(0, index).split('\n').length;
-
 export function runTreatments(config, cwd) {
   const failures = [];
   const problems = [];
@@ -202,7 +201,7 @@ export function runTreatments(config, cwd) {
 
   for (const file of files) {
     const source = readFileSync(file, 'utf8');
-    const where = (at) => ({ file: label(file, cwd), line: lineOf(source, at) });
+    const where = (at) => ({ file: label(file, cwd), line: lineAt(source, at) });
 
     for (const tag of openTags(source, elements)) {
       for (const { name, at } of classesOf(tag.attrs)) {

@@ -28,7 +28,7 @@ const USAGE = `taste-check
 
 Options:
   -c, --config <path>   Config file (default: tastecheck.config.json)
-      --only <name>     Run one check: contrast or treatments
+      --only <name>     Run one check: contrast, treatments or tokens
       --new [path]      checklist only: scaffold a starter, refusing to
                         overwrite one that exists
       --lint            checklist only: report lines a judge cannot answer
@@ -112,8 +112,8 @@ function parseArgs(argv) {
     else if (arg === '-c' || arg === '--config') options.config = next();
     else if (arg === '--only') {
       options.only = next();
-      if (options.only !== 'contrast' && options.only !== 'treatments') {
-        throw new Error(`--only takes "contrast" or "treatments", not "${options.only}"`);
+      if (!['contrast', 'treatments', 'tokens'].includes(options.only)) {
+        throw new Error(`--only takes "contrast", "treatments" or "tokens", not "${options.only}"`);
       }
     } else if (arg === '--json') options.format = 'json';
     else if (arg === '--lint') options.lint = true;
@@ -268,7 +268,7 @@ else if (options.command === 'runtime') results = await runtime(loaded.config, l
 else results = run(loaded.config, loaded.dir, { only: options.only });
 
 if (!results.length) {
-  die(`nothing to run. ${options.config} defines no ${options.only ?? 'contrast or treatments'} check.`);
+  die(`nothing to run. ${options.config} defines no ${options.only ?? 'contrast, treatments or tokens'} check.`);
 }
 
 if (options.format === 'sarif') {

@@ -54,6 +54,10 @@ function judgeLines(result) {
 export const linesFor = (result) => {
   if (result.name === 'contrast' || result.name === 'runtime') return contrastLines(result);
   if (result.name === 'judge') return judgeLines(result);
+  // tokens and treatments both report {file, line, message} failures, so they
+  // render the same way. Named rather than left to the fallthrough: a check
+  // that renders by accident is a check that stops rendering by accident.
+  if (result.name === 'tokens') return treatmentLines(result);
   return treatmentLines(result);
 };
 

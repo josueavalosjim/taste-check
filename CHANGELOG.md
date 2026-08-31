@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.11.0
+
+**A `tokens` check**, for the `var(--x)` in your markup naming a custom
+property nothing declares. Give it `declaredIn` and `files`; there is no list
+to curate, because the token file is the list.
+
+The failure it is built for is a name that was never real:
+`var(--color-primary-500)` in a system that says `--brand-action-bg`. That is
+not a typo, it is what gets written when the code is produced without the token
+file open, and it survives review because it looks like a token.
+
+It scans markup and not stylesheets, deliberately. Stylelint's core
+`no-unknown-custom-properties` already does the CSS side, and its
+`referenceFiles` option already covers tokens declared in one file and used in
+another. What it does not cover is markup: its CSS-in-JS syntax is deprecated,
+and `style={{ color: open ? 'var(--a)' : 'var(--b)' }}` is a JavaScript object
+literal that no CSS parser reads. Run both.
+
+The scan is the whole file rather than the tags, because `var(--` means the
+same thing everywhere, so a reference in an object above the `return` or in a
+styled-components template is found, and `var(--a, var(--b))` reports both
+names rather than only the outer one. A token declared only under
+`[data-theme="dark"]` counts as declared; theme scoping is right for measuring
+contrast and wrong for asking whether a name exists.
+
+`allow` and `allowPrefixes` are the escape hatch, for a property set from
+JavaScript or owned by a library.
+
+Three ways it can go quiet are blocking failures: no token files matched, no
+markup matched, and a token file that declares nothing. A run that finds no
+references at all is not one of them, because a codebase that keeps its styling
+in stylesheets has none and is not broken. That number is in the summary
+instead.
+
+`--only tokens`, `tokens/undefined` and `tokens/unscannable` in SARIF.
+
 ## 0.10.0
 
 **`taste-check checklist --new`** writes a starter checklist into your repo.

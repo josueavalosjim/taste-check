@@ -1,0 +1,9 @@
+/*
+ * A stylesheet with rules and no custom properties, so the guard for a token
+ * file that declares nothing has a real file to point at rather than a
+ * hand-built string.
+ */
+.panel {
+  color: #16181d;
+  padding: 8px;
+}

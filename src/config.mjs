@@ -151,6 +151,19 @@ function validateTreatments(treatments, errors) {
   }
 }
 
+function validateTokens(tokens, errors) {
+  rejectUnknown(tokens, ['declaredIn', 'files', 'allow', 'allowPrefixes'], 'tokens', errors);
+  stringArray(tokens.declaredIn, 'tokens.declaredIn', errors);
+  stringArray(tokens.files, 'tokens.files', errors);
+  stringArray(tokens.allow, 'tokens.allow', errors, { required: false });
+  stringArray(tokens.allowPrefixes, 'tokens.allowPrefixes', errors, { required: false });
+  for (const name of tokens.allow ?? []) {
+    if (typeof name === 'string' && !name.startsWith('--')) {
+      errors.push(`tokens.allow has "${name}", which is not a custom property name. Names start with "--".`);
+    }
+  }
+}
+
 function validateJudge(judge, errors) {
   rejectUnknown(judge, ['checklist', 'shots', 'shotCommand', 'command', 'failOn'], 'judge', errors);
   if (typeof judge.checklist !== 'string' || !judge.checklist) {
@@ -246,15 +259,18 @@ function validateRuntime(runtime, errors) {
 export function validate(config) {
   const errors = [];
   if (!isPlainObject(config)) return ['the config must be a JSON object'];
-  rejectUnknown(config, ['$schema', 'contrast', 'treatments', 'judge', 'runtime'], 'the config', errors);
+  rejectUnknown(config, ['$schema', 'contrast', 'treatments', 'tokens', 'judge', 'runtime'], 'the config', errors);
 
   if (
     config.contrast === undefined &&
     config.treatments === undefined &&
+    config.tokens === undefined &&
     config.judge === undefined &&
     config.runtime === undefined
   ) {
-    errors.push('the config must define at least one of "contrast", "treatments", "runtime" or "judge"');
+    errors.push(
+      'the config must define at least one of "contrast", "treatments", "tokens", "runtime" or "judge"',
+    );
   }
   if (config.contrast !== undefined) {
     if (isPlainObject(config.contrast)) validateContrast(config.contrast, errors);
@@ -263,6 +279,10 @@ export function validate(config) {
   if (config.treatments !== undefined) {
     if (isPlainObject(config.treatments)) validateTreatments(config.treatments, errors);
     else errors.push('treatments must be an object');
+  }
+  if (config.tokens !== undefined) {
+    if (isPlainObject(config.tokens)) validateTokens(config.tokens, errors);
+    else errors.push('tokens must be an object');
   }
   if (config.judge !== undefined) {
     if (isPlainObject(config.judge)) validateJudge(config.judge, errors);

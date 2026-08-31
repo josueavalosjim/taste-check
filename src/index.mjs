@@ -4,6 +4,7 @@
  */
 export { runContrast } from './contrast.mjs';
 export { runTreatments } from './treatments.mjs';
+export { runTokens, varRefs } from './tokens.mjs';
 export { runJudge, prepareJudge, gradeVerdict, buildPrompt, checklistLines, checklistEntries, extractJson } from './judge.mjs';
 export { runRuntime } from './runtime.mjs';
 export { connect, findBrowser } from './cdp.mjs';
@@ -15,6 +16,7 @@ export { openTags, classesOf } from './treatments.mjs';
 
 import { runContrast } from './contrast.mjs';
 import { runTreatments } from './treatments.mjs';
+import { runTokens } from './tokens.mjs';
 import { runJudge } from './judge.mjs';
 import { runRuntime } from './runtime.mjs';
 
@@ -33,6 +35,9 @@ export function run(config, cwd, { only = null } = {}) {
   }
   if (config.treatments && (!only || only === 'treatments')) {
     results.push(runTreatments(config.treatments, cwd));
+  }
+  if (config.tokens && (!only || only === 'tokens')) {
+    results.push(runTokens(config.tokens, cwd));
   }
   return results;
 }

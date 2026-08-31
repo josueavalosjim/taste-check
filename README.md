@@ -3,9 +3,9 @@
 Design review in CI, with a line down the middle of it.
 
 Some of design review is measurable. Contrast ratios, values that should have
-been tokens, class names nobody approved. taste-check measures those and fails
-your build on them, either from your token file or from a page it renders in a
-real browser.
+been tokens, tokens that were never real, class names nobody approved.
+taste-check measures those and fails your build on them, either from your token
+file or from a page it renders in a real browser.
 
 The rest is judgment, and it cannot be measured. For that it sends your
 screenshots and your checklist to a model, and reports what comes back as an
@@ -32,6 +32,9 @@ contrast ok, 10 pairs across 2 themes
 treatments FAILED
   FAIL  src/Promo.jsx:7 class "promo-huge" on <div> is not approved
   FAIL  src/Promo.jsx:8 inline value "#ff0055" on <a> is a one-off. Use a token, or add it to approvedValues.
+
+tokens FAILED
+  FAIL  src/Promo.jsx:8 "--color-primary-500" is referenced here but declared in no token file. Check the name, or add it to allow.
 ```
 
 ```bash
@@ -72,7 +75,9 @@ in your repo: what runs is the copy you edited, never its own.
 Each of these exits 1 rather than passing quietly:
 
 - a pair naming a token that does not exist
+- markup referencing a token that is declared nowhere
 - a file pattern matching no files
+- a token file that declares no custom properties at all
 - a theme whose scopes resolve no tokens
 - a single scope inside a theme that selects nothing, even when the theme has
   tokens from its other scopes
@@ -181,6 +186,55 @@ direction to be wrong in.
 
 Template literal holes are read into rather than blanked, so a class written
 inside `` `card ${on ? 'card--on' : ''}` `` is seen.
+
+## The tokens check
+
+Give it the stylesheet that declares your tokens and the markup that uses them.
+It reports every `var(--x)` in your markup where `--x` is declared nowhere.
+
+```json
+{
+  "tokens": {
+    "declaredIn": ["src/styles/tokens.css"],
+    "files": ["src/**/*.jsx"],
+    "allow": ["--scroll-progress"],
+    "allowPrefixes": ["--radix-"]
+  }
+}
+```
+
+The failure it is built for is a token name that was never real:
+`var(--color-primary-500)` in a system that says `--brand-action-bg`. A name
+like that is not a typo. It is what gets written when the code is produced
+without the token file open, which is most of what a model does, and it looks
+correct in review because it looks like a token.
+
+**It scans markup, not stylesheets, and that is deliberate.** See
+[where it sits](#where-it-sits-next-to-other-tools). Stylelint already owns the
+CSS side and does it better.
+
+For markup the scan is the whole file rather than the tags, because `var(--`
+means one thing everywhere it appears. So a reference in an object declared
+above the `return`, in a styled-components template, or in a constant in
+another module is found, and nesting comes free: both names in
+`var(--a, var(--b))` are checked, not only the outer one.
+
+`allow` and `allowPrefixes` are the escape hatch, and you will need them. A
+custom property set from JavaScript with `setProperty`, or one owned by a
+library's stylesheet, is legitimately absent from your token file.
+
+Two things it does not treat as failures. A bare `--x` written where you meant
+`var(--x)` is stylelint's `custom-property-no-missing-var-function`, not this.
+And a run that finds no references at all is reported in the summary rather
+than failed, because a codebase that keeps its styling in stylesheets has none
+and is not broken:
+
+```
+tokens ok, 1 token file, 84 declared, 41 files scanned, 0 references
+```
+
+If that zero is a surprise, your `files` pattern is pointed at the wrong tree.
+A pattern matching no files at all is a failure, as everywhere else here.
 
 ## Measuring the rendered page
 
@@ -416,6 +470,10 @@ it is the way it is.
 | `treatments.approvedClasses` | Every class allowed to appear. |
 | `treatments.allowPrefixes` | Prefixes that are always allowed, as a deliberate escape hatch. |
 | `treatments.approvedValues` | Literal values allowed inside inline styles. |
+| `tokens.declaredIn` | Stylesheets declaring the tokens. Every custom property in them counts, in any scope. |
+| `tokens.files` | Markup to scan for `var()` references. |
+| `tokens.allow` | Names that need no declaration, for ones set from JavaScript. Must start with `--`. |
+| `tokens.allowPrefixes` | Name prefixes that are always allowed, for a family a library owns. |
 | `judge.checklist` | Your checklist file. List items are judged, prose is not. |
 | `judge.shots` | Screenshots to hand the judge. Matching nothing is a failure. |
 | `judge.shotCommand` | Optional command run first to produce those screenshots. |
@@ -433,7 +491,7 @@ taste-check runtime [options] Measure contrast on a rendered page
 taste-check judge [options]   Ask a fresh-eyes judge about your screenshots
 
   -c, --config <path>   Config file (default: tastecheck.config.json)
-      --only <name>     Run one check: contrast or treatments
+      --only <name>     Run one check: contrast, treatments or tokens
       --format <kind>   text (default), json, or sarif
       --json            Alias for --format json
       --version         Print the version
@@ -493,6 +551,16 @@ tool, run axe.
 **stylelint, eslint.** General code quality, with an enormous rule ecosystem.
 Nothing here replaces them.
 
+**stylelint for tokens in CSS specifically.** Its core
+`no-unknown-custom-properties` reports a `var()` naming a custom property
+nothing declares, and its `referenceFiles` option covers the case that matters,
+where the tokens live in one file and the uses live in another. That is the
+same check taste-check runs, done first-party, so run stylelint on your
+stylesheets. taste-check only scans markup, where stylelint does not go: its
+CSS-in-JS syntax is deprecated, and a `style={{ color: open ? 'var(--a)' :
+'var(--b)' }}` prop is a JavaScript object literal that no CSS parser reads at
+all.
+
 **@lapidist/design-lint.** More thorough than taste-check on the token and
 component side: it parses properly rather than scanning, knows about
 frameworks, autofixes, and manages deprecations. If enforcing tokens in code is
@@ -536,6 +604,11 @@ within one channel unit.
 them. If your tokens rely on `.a.b` beating `.b`, list the scopes in the order
 you want.
 
+**It does not lint your stylesheets.** The tokens check reads your CSS to learn
+what is declared and then never looks at it again. A `var()` in a `.css` file
+naming nothing is not reported here. That is stylelint's
+`no-unknown-custom-properties`, named above.
+
 **Component indirection is invisible.** Classes applied by a helper
 function, a `clsx` call importing names from elsewhere, or CSS-in-JS are
 invisible to it.
@@ -564,10 +637,11 @@ publisher over OIDC, so no npm token is stored in the repository and every
 release carries a provenance attestation. For a minor or major bump, run
 `npm version minor` or `npm version major` and `git push --follow-tags`.
 
-34 tests. Most of them plant a violation into a fixture that was passing a
+171 tests. Most of them plant a violation into a fixture that was passing a
 moment earlier and demand it gets caught: a token darkened below its floor, an
 unapproved class added to a clean file, a class buried in a template literal
-hole, a file pattern pointed at nothing.
+hole, a fabricated token hidden in a ternary, a file pattern pointed at
+nothing.
 
 ## License
 

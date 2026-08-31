@@ -32,6 +32,8 @@ const RULES = [
   ['treatments/unapproved-class', 'error', 'A class name that is not on the approved list.'],
   ['treatments/one-off-value', 'error', 'A literal colour or length hardcoded into an inline style.'],
   ['treatments/unscannable', 'error', 'No markup matched, so nothing was checked.'],
+  ['tokens/undefined', 'error', 'Markup references a custom property that no token file declares.'],
+  ['tokens/unscannable', 'error', 'The tokens check could not run: no token file, no markup, or a token file that declares nothing.'],
   ['runtime/below-floor', 'error', 'A target on the rendered page is under the ratio it was given.'],
   ['runtime/unmeasurable', 'error', 'A target could not be measured: no element, nothing rendered, an edge with no width, or no browser.'],
   ['judge/verdict', 'note', 'A checklist line the judge did not pass. Advisory: a model verdict is not reproducible.'],
@@ -118,7 +120,7 @@ function resultsFor(check, ctx) {
     return out;
   }
 
-  if (check.name === 'treatments') {
+  if (check.name === 'treatments' || check.name === 'tokens') {
     for (const failure of check.failures ?? []) {
       out.push({
         ruleId: failure.rule,
@@ -130,7 +132,7 @@ function resultsFor(check, ctx) {
     }
     for (const problem of check.problems ?? []) {
       out.push({
-        ruleId: 'treatments/unscannable',
+        ruleId: `${check.name}/unscannable`,
         key: problem,
         level: 'error',
         message: { text: problem },

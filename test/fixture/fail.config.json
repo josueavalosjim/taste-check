@@ -26,5 +26,9 @@
     ],
     "allowPrefixes": ["u-"],
     "approvedValues": []
+  },
+  "tokens": {
+    "declaredIn": ["tokens.css"],
+    "files": ["vars/bad.jsx"]
   }
 }

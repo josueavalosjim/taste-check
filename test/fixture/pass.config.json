@@ -40,5 +40,11 @@
     ],
     "allowPrefixes": ["u-"],
     "approvedValues": []
+  },
+  "tokens": {
+    "declaredIn": ["tokens.css"],
+    "files": ["vars/ok.jsx"],
+    "allow": ["--set-from-js"],
+    "allowPrefixes": ["--lib-"]
   }
 }
