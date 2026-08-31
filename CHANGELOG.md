@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.10.0
+
+**`taste-check checklist --new`** writes a starter checklist into your repo.
+Six lines, every one about whether a screen is broken rather than whether it is
+good, because that is the only kind of line that is not somebody's taste. It
+refuses to overwrite a file that exists.
+
+This is a scaffold and not a default, and the difference is why it is allowed
+here at all. A default judges every user who never opened the file against
+opinions they did not choose. A scaffold is a file you edited and committed,
+and taste-check never reads its own copy. Same shape as eslint, which ships
+rules and no default configuration.
+
+**`taste-check checklist --lint`** checks your lines and never their content.
+It flags a line a judge will answer "unsure" to every run, a line asking two
+things at once, a line about something a still image cannot show, and a line
+asking for a number that belongs in a contrast pair instead. It has no opinion
+about what you ask for: "the primary action reads as the primary action" passes,
+because it can be settled by looking.
+
+The shipped starter passes the shipped linter, which is asserted rather than
+assumed.
+
 ## 0.9.0
 
 **`$comment` is allowed wherever an object is**, ignored, taking a string or an

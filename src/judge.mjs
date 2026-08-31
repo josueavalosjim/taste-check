@@ -18,9 +18,12 @@
  * every line, prefer unsure to a guess, quote what you actually see. That part
  * is method and it is portable.
  *
- * The CHECKLIST is yours. taste-check contains no design rules and never will,
- * because a shipped checklist is just somebody else's taste wearing the
- * authority of a tool.
+ * The CHECKLIST is yours. taste-check enforces no rule it wrote: what runs is
+ * the file in your repo. `checklist --new` will scaffold you a starting point,
+ * and the distinction is not a dodge, it is the difference between a default
+ * and a scaffold. A default judges every user who never opened the file
+ * against opinions they did not choose. A scaffold is a file you edited and
+ * committed, and this never reads its own copy of it.
  *
  * ── Where the determinism line falls ────────────────────────────────────
  *

@@ -78,5 +78,11 @@ old screenshots is not a verdict on the new ones.
 ## What this skill does not contain
 
 Any design rules. The checklist is the user's file, named in their config, and
-if it is empty then this reports nothing and that is correct. A checklist that
-arrived with a tool is somebody else's taste wearing the tool's authority.
+if it is empty then this reports nothing and that is correct.
+
+`taste-check checklist --new` will scaffold a starter into their repo, six
+lines about whether a screen is broken rather than whether it is good. Once it
+is written it is theirs, and what gets judged is whatever they edited it into.
+Do not add lines to it yourself, and do not judge against a rule that is not in
+it. A rule that arrives at the moment of judgment, from the tool or from you,
+is somebody else's taste wearing borrowed authority.

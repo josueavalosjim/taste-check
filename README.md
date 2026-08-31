@@ -63,8 +63,9 @@ which is fine for advice and disqualifying for a build gate. So the measured
 half here gates, the judged half does not, and the tool will not let you
 confuse one for the other by accident.
 
-It also ships no design rules of its own. Not a palette, not a class list, not
-a contrast floor, not a checklist. You supply all of it.
+It also enforces no rule it wrote. Not a palette, not a class list, not a
+contrast floor. It will scaffold you a starter checklist, and that file lands
+in your repo: what runs is the copy you edited, never its own.
 
 ## What counts as a failure
 
@@ -284,11 +285,13 @@ told what changed, answer every line, prefer unsure to a guess, do not be
 agreeable, and name the specific thing you are looking at. That part is method
 and it is the same for everyone.
 
-The checklist is yours. taste-check ships none, and there is a test asserting
-the framing mentions no design vocabulary at all, because a rule that arrives
-inside a tool is somebody else's taste with the tool's authority behind it.
-Checklist lines are list items in your file; a heading or a paragraph is prose
-and is not judged.
+The checklist is yours, and there is a test asserting the framing mentions no
+design vocabulary at all, because a rule that arrives at the moment of judgment
+carries the tool's authority rather than its author's. Checklist lines are list
+items in your file; a heading or a paragraph is prose and is not judged.
+
+Starting from nothing is its own problem, so there is a scaffold and a linter
+for the lines you write. Both are in the next section.
 
 ### Letting an agent carry the call
 
@@ -335,6 +338,48 @@ exits 1 whatever `failOn` says:
 
 Without that split, "the judge did not run" and "the judge found nothing" print
 the same thing.
+
+## Starting a checklist
+
+An empty file is the hardest part of the judge, so:
+
+```bash
+taste-check checklist --new
+```
+
+It writes a starter into your repo. Six lines, and every one is about whether
+the screen is broken rather than whether it is good, because that is the only
+kind of line that is not somebody's taste. It refuses to overwrite a file that
+exists, since the moment it lands it is yours.
+
+That is a scaffold and not a default, and the difference is the whole reason it
+is allowed to exist here. A default judges every user who never opened the file
+against opinions they did not choose. A scaffold is a file you edited and
+committed, and taste-check never reads its own copy. eslint is the same shape:
+it ships rules and no default configuration, and `--init` writes you one.
+
+```bash
+taste-check checklist --lint
+```
+
+This checks your lines and never their content. It has no opinion about what
+you ask for, only about whether asking it produces a verdict:
+
+```
+checklist, 3 to look at
+  unfalsifiable   design-checklist.md:12  "Does it feel premium and modern"
+                  "premium", "modern", "feel" describes a feeling rather than
+                  something visible. A judge answers unsure, every run.
+  not-in-a-still  design-checklist.md:13  "Is the hover animation smooth"
+                  "animation", "hover" cannot be seen in a screenshot.
+  measurable      design-checklist.md:14  "Body copy hits at least 4.5:1"
+                  this asks for a number. Put it in a contrast pair instead.
+```
+
+It also flags a line asking two things at once, since one verdict cannot answer
+both. "The primary action reads as the primary action" passes: it is an opinion,
+a strong one, and none of the linter's business, because it can be settled by
+looking.
 
 ## Config
 
@@ -455,8 +500,9 @@ the whole of your problem, it is the better fit.
 
 **Checklist Design and similar agent skills.** They arrive with a hundred or
 more published checklists and review conversationally. If you want good
-opinions supplied, take theirs. taste-check supplies none on purpose and runs
-in CI with an exit code instead.
+opinions supplied, take theirs, and they are good. taste-check scaffolds six
+lines about whether a screen is broken and expects the rest to be yours, which
+is more work and a different bargain.
 
 What is left, and the reason this exists: nothing above draws a line between
 the part that can gate a build and the part that cannot. The linters have no
