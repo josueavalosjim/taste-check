@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.12.0
+
+Four ways this tool could print `ok` having checked nothing, which is the exact
+failure it exists to prevent. All four were found by an outside review, and
+none of them were caught by 171 passing tests.
+
+**A single-quoted attribute was invisible.** `literalAttr` matched double
+quotes only, so `class='a b'` and `style='...'` hit neither the literal path
+nor the expression path and the element read as carrying nothing at all. A file
+with two unapproved classes and two one-off values reported `treatments ok` and
+exited 0. `treatments.files` accepts `.html`, where single quotes are house
+style, so this was not a corner case.
+
+**A dead pattern beside a live one was never reported.** A pattern list is
+resolved as a union, so `["src/**/*.tsx", "components/**/*.tsx"]` with
+`components` renamed still returned every file under `src`, the union was not
+empty, and that whole second tree silently stopped being checked. `expandEach`
+now reports which patterns matched nothing, per pattern, and every caller says
+so. Same fix for `contrast.tokens` and `judge.shots`: a screen the judge never
+saw cannot pass.
+
+**A comment could erase a declaration.** Comments were blanked before the walk,
+and blanking cannot see quotes, so a `/*` inside one string value and a `*/`
+inside another erased every declaration between them. A theme override lost
+that way does not fail: the base value is used instead and the dark theme gets
+measured against light numbers. Comments are now stepped over inside the
+quote-aware walk. The offset of a declaration is recorded as it is read rather
+than derived by trimming afterwards, because trimming stopped at the `/` and
+reported the comment's line as the declaration's own.
+
+**A dash-case border property always failed.** `border-top-color` was stripped
+to `-top-color` and then read as `border-top-colorWidth`, which is undefined,
+so every dash-case edge reported "no width, so no edge is drawn" over a real
+border. The config validator accepts dash-case, so this was reachable by
+writing the natural thing.
+
+Also: three tests that could not fail. A prefix test whose name did not contain
+the prefix it was testing against, a `**` test that a broken `**` still passed,
+and a dead-pattern test that missed the one path a real config hits. Each was
+rewritten and then verified by breaking the source and watching it go red.
+Eight mutations, eight kills.
+
 ## 0.11.0
 
 **A `tokens` check**, for the `var(--x)` in your markup naming a custom

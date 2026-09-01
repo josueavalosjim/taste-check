@@ -56,25 +56,44 @@ function walk(dir, out) {
 }
 
 /**
- * Absolute paths matching the patterns, relative to `cwd`, sorted and
- * de-duplicated so a run is reproducible and a report is diffable.
+ * Absolute paths matching the patterns, plus the patterns that matched
+ * nothing.
+ *
+ * The misses are returned rather than inferred from an empty result, because
+ * a list is checked as a union. Two patterns, one naming src and one naming
+ * components, with components renamed: the src half still returns every file
+ * it matched, so the union is not empty and that whole second tree silently
+ * stops being checked. This file's own header promises a typo is reported
+ * where it happened, and only a per-pattern answer keeps that promise.
  */
-export function expand(patterns, cwd) {
+export function expandEach(patterns, cwd) {
   const found = new Set();
+  const empty = [];
   for (const pattern of patterns) {
+    const before = found.size;
     const absolute = isAbsolute(pattern) ? pattern : resolve(cwd, pattern);
     if (!/[*?]/.test(pattern)) {
       if (existsSync(absolute) && statSync(absolute).isFile()) found.add(absolute);
+      else empty.push(pattern);
       continue;
     }
     const base = resolve(cwd, baseOf(pattern));
-    if (!existsSync(base) || !statSync(base).isDirectory()) continue;
+    if (!existsSync(base) || !statSync(base).isDirectory()) {
+      empty.push(pattern);
+      continue;
+    }
     const test = toRegExp(isAbsolute(pattern) ? pattern : resolve(cwd, pattern).split(sep).join('/'));
     for (const file of walk(base, [])) {
       if (test.test(file.split(sep).join('/'))) found.add(file);
     }
+    if (found.size === before) empty.push(pattern);
   }
-  return [...found].sort();
+  return { files: [...found].sort(), empty };
+}
+
+/** Just the paths, for callers with nothing useful to say about a miss. */
+export function expand(patterns, cwd) {
+  return expandEach(patterns, cwd).files;
 }
 
 /** A path as you would paste it into an editor. */

@@ -19,7 +19,7 @@
 import { readFileSync } from 'node:fs';
 import { contrastRatio, isOpaque, parseColor } from './color.mjs';
 import { lineAt, parseDeclarations, resolveScopes, resolveValue, unmatchedScopes } from './css.mjs';
-import { expand, label } from './files.mjs';
+import { expandEach, label } from './files.mjs';
 
 /** A token name, or a literal colour, resolved to rgba for one theme. */
 function side(spec, table, theme) {
@@ -40,9 +40,14 @@ export function runContrast(config, cwd) {
   const problems = [];
   const { tokens, themes, pairs } = config;
 
-  const files = expand(tokens, cwd);
+  const { files, empty: deadPatterns } = expandEach(tokens, cwd);
+  // Per pattern. A dead one beside a live one leaves the union non-empty, so
+  // a renamed token file stops being read without anything saying so.
+  for (const p of deadPatterns) problems.push(`no token files matched "${p}"`);
   if (!files.length) {
-    problems.push(`no token files matched ${tokens.map((t) => `"${t}"`).join(', ')}`);
+    if (!deadPatterns.length) {
+      problems.push(`no token files matched ${tokens.map((t) => `"${t}"`).join(', ')}`);
+    }
     return { name: 'contrast', samples, problems, summary: '' };
   }
 

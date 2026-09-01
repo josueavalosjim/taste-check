@@ -41,7 +41,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { expand, label } from './files.mjs';
+import { expandEach, label } from './files.mjs';
 
 /**
  * The instructions wrapped around the user's checklist.
@@ -182,7 +182,21 @@ export function prepareJudge(config, cwd) {
     if (!made.ok) return { ok: false, result: empty([made.reason], failOn) };
   }
 
-  const images = expand(shots, cwd);
+  const { files: images, empty: deadShots } = expandEach(shots, cwd);
+  /* A dead shot pattern is the same failure as no shots at all, one screen at
+     a time: the judge answers about the frames it was given and says nothing
+     about the one nobody handed it. */
+  if (deadShots.length) {
+    return {
+      ok: false,
+      result: empty(
+        deadShots.map(
+          (p) => `no screenshots matched "${p}". A screen the judge never saw cannot pass.`,
+        ),
+        failOn,
+      ),
+    };
+  }
   if (!images.length) {
     return {
       ok: false,

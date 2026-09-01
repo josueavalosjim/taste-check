@@ -39,11 +39,6 @@
  */
 const CONDITIONAL = /^@(media|supports|container|scope|document)\b/;
 
-/** Blank out comments, keeping every offset and newline so lines stay true. */
-function blankComments(css) {
-  return css.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '));
-}
-
 const normalize = (selector) => selector.replace(/\s+/g, ' ').replace(/'/g, '"').trim();
 
 /**
@@ -51,16 +46,25 @@ const normalize = (selector) => selector.replace(/\s+/g, ' ').replace(/'/g, '"')
  * under and the at-rules it is nested inside.
  */
 export function parseDeclarations(css) {
-  const source = blankComments(css);
+  const source = css;
   const decls = [];
   const stack = [];
   let buffer = '';
   let bufferStart = 0;
+  /* Offset of the first non-whitespace character in the buffer, recorded as
+     it is read rather than derived afterwards by trimming. Deriving it worked
+     only while comments were blanked to spaces up front: once they are stepped
+     over instead, the source still holds the comment text, so trimming stops
+     at the "/" and every declaration under a comment reported the comment's
+     line as its own. */
+  let ink = -1;
   let quote = null;
 
-  const flush = (end) => {
+  const flush = () => {
     const text = buffer.trim();
     buffer = '';
+    const at = ink;
+    ink = -1;
     if (!text) return;
     const colon = text.indexOf(':');
     if (colon === -1) return;
@@ -77,13 +81,14 @@ export function parseDeclarations(css) {
       value,
       selector,
       atRules: stack.filter((s) => s.startsWith('@')),
-      index: bufferStart + (source.slice(bufferStart, end).length - source.slice(bufferStart, end).trimStart().length),
+      index: at === -1 ? bufferStart : at,
     });
   };
 
   for (let i = 0; i < source.length; i += 1) {
     const c = source[i];
     if (quote) {
+      if (ink === -1) ink = i;
       buffer += c;
       if (c === '\\') {
         buffer += source[i + 1] ?? '';
@@ -91,29 +96,44 @@ export function parseDeclarations(css) {
       } else if (c === quote) quote = null;
       continue;
     }
+    /* Comments are skipped here rather than blanked before the walk.
+       Blanking first cannot see quotes, so a "/*" inside one string value and
+       a "*\/" inside another erased every declaration between them. A theme
+       override lost that way does not fail: resolveScopes falls back to the
+       base value and the dark theme gets measured against light numbers, which
+       is the exact miss this file exists to catch. Offsets stay true because
+       nothing is rewritten, only stepped over. */
+    if (c === '/' && source[i + 1] === '*') {
+      const end = source.indexOf('*\/', i + 2);
+      i = end === -1 ? source.length : end + 1;
+      continue;
+    }
     if (c === '"' || c === "'") {
       quote = c;
+      if (ink === -1) ink = i;
       buffer += c;
       continue;
     }
     if (c === '{') {
       stack.push(buffer.trim().replace(/\s+/g, ' '));
       buffer = '';
+      ink = -1;
       bufferStart = i + 1;
       continue;
     }
     if (c === '}') {
-      flush(i);
+      flush();
       stack.pop();
       bufferStart = i + 1;
       continue;
     }
     if (c === ';') {
-      flush(i);
+      flush();
       bufferStart = i + 1;
       continue;
     }
     if (!buffer) bufferStart = i;
+    if (ink === -1 && c.trim()) ink = i;
     buffer += c;
   }
   return decls;

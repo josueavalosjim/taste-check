@@ -21,7 +21,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { lineAt } from './css.mjs';
-import { expand, label } from './files.mjs';
+import { expandEach, label } from './files.mjs';
 
 /** Literal value shapes worth flagging when they are not on the list. */
 const VALUE_SHAPES = [
@@ -61,10 +61,18 @@ export function* openTags(source, names) {
   }
 }
 
-/** The value of `attr` when it is a plain string literal, else null. */
+/**
+ * The value of `attr` when it is a plain string literal, else null.
+ *
+ * Both quote styles. Matching only double quotes meant class='a b' and
+ * style='...' hit neither this nor the expression path, so the element was
+ * read as carrying no classes and no values: a file full of unapproved
+ * classes reported clean and exited 0. Single quotes are the house style in
+ * a lot of HTML, and `files` accepts .html, so this was not a corner.
+ */
 export function literalAttr(attrs, attr) {
-  const m = attrs.match(new RegExp(`(?:^|\\s)${attr}\\s*=\\s*"([^"]*)"`));
-  return m ? { text: m[1], at: m.index + m[0].indexOf('"') + 1 } : null;
+  const m = attrs.match(new RegExp(`(?:^|\\s)${attr}\\s*=\\s*(["'])([\\s\\S]*?)\\1`));
+  return m ? { text: m[2], at: m.index + m[0].indexOf(m[1]) + 1 } : null;
 }
 
 /** The braced expression for `attr`, brace-balanced, or null. */
@@ -190,9 +198,11 @@ export function runTreatments(config, cwd) {
     approvedValues = [],
   } = config;
 
-  const files = expand(patterns, cwd);
+  const { files, empty } = expandEach(patterns, cwd);
+  // Per pattern: a dead one beside a live one leaves the union non-empty.
+  for (const p of empty) problems.push(`no markup files matched "${p}"`);
   if (!files.length) {
-    problems.push(`no markup files matched ${patterns.map((p) => `"${p}"`).join(', ')}`);
+    if (!empty.length) problems.push(`no markup files matched ${patterns.map((p) => `"${p}"`).join(', ')}`);
     return { name: 'treatments', failures, problems, summary: '' };
   }
 

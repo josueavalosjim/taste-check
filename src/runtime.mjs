@@ -38,11 +38,19 @@ const MEASURE = `(targets) => targets.map(({ selector, prop, againstParent }) =>
   if (!el) return { error: 'matched no element' };
   if (!el.getClientRects().length) return { error: 'matched an element that is not rendered' };
   const cs = getComputedStyle(el);
-  const fg = cs[prop];
+  // Read either spelling. A config saying border-top-color is the natural
+  // thing to write and the validator accepts it, so it must not fall through
+  // to an undefined lookup.
+  const fg = prop.includes('-') ? cs.getPropertyValue(prop) : cs[prop];
   if (!fg) return { error: 'has no ' + prop };
-  if (prop.startsWith('border')) {
-    const side = prop.replace(/^border|Color$/g, '');
-    const width = parseFloat(cs['border' + (side || 'Top') + 'Width']);
+  if (/^border/i.test(prop)) {
+    /* Both spellings again. Stripping only the camelCase affixes turned
+       border-top-color into "-top-color" and then read borderTopWidth as
+       border-top-colorWidth, which is undefined, so every dash-case edge
+       reported "no width, so no edge is drawn" over a real border. */
+    const side = prop.replace(/^border-?/i, '').replace(/-?color$/i, '');
+    const dashed = side ? side.replace(/([A-Z])/g, '-$1').replace(/^-/, '').toLowerCase() : 'top';
+    const width = parseFloat(cs.getPropertyValue('border-' + dashed + '-width'));
     if (!width) return { error: 'has a ' + prop + ' but no width, so no edge is drawn' };
   }
   const layers = [];

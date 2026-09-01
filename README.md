@@ -637,11 +637,15 @@ publisher over OIDC, so no npm token is stored in the repository and every
 release carries a provenance attestation. For a minor or major bump, run
 `npm version minor` or `npm version major` and `git push --follow-tags`.
 
-171 tests. Most of them plant a violation into a fixture that was passing a
+183 tests. Most of them plant a violation into a fixture that was passing a
 moment earlier and demand it gets caught: a token darkened below its floor, an
 unapproved class added to a clean file, a class buried in a template literal
 hole, a fabricated token hidden in a ternary, a file pattern pointed at
 nothing.
+
+The count is not the point and is easy to inflate. What the suite is actually
+worth is measured by breaking the source on purpose and checking the right
+test goes red, which is where the 0.12.0 fixes came from.
 
 ## License
 

@@ -29,7 +29,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { lineAt, parseDeclarations } from './css.mjs';
-import { expand, label } from './files.mjs';
+import { expandEach, label } from './files.mjs';
 
 /**
  * The name is `[\w-]+` for the same reason `resolveValue` in css.mjs uses it:
@@ -72,10 +72,17 @@ export function runTokens(config, cwd) {
   const { declaredIn, files: patterns, allow = [], allowPrefixes = [] } = config;
 
   const quoted = (list) => list.map((p) => `"${p}"`).join(', ');
-  const tokenFiles = expand(declaredIn, cwd);
-  const files = expand(patterns, cwd);
+  const declared_ = expandEach(declaredIn, cwd);
+  const scanned_ = expandEach(patterns, cwd);
+  const tokenFiles = declared_.files;
+  const files = scanned_.files;
 
-  if (!tokenFiles.length) problems.push(`no token files matched ${quoted(declaredIn)}`);
+  /* Per pattern, not per list. A list is a union, so one dead pattern beside
+     a live one leaves the union non-empty and that tree stops being checked
+     in silence. */
+  for (const p of declared_.empty) problems.push(`no token files matched "${p}"`);
+  for (const p of scanned_.empty) problems.push(`no markup files matched "${p}"`);
+  if (!tokenFiles.length && !declared_.empty.length) problems.push(`no token files matched ${quoted(declaredIn)}`);
   const declared = declaredNames(tokenFiles);
   if (tokenFiles.length && !declared.size) {
     problems.push(
@@ -83,7 +90,7 @@ export function runTokens(config, cwd) {
         `but none of them declares a custom property. Every reference would read as undefined.`,
     );
   }
-  if (!files.length) problems.push(`no markup files matched ${quoted(patterns)}`);
+  if (!files.length && !scanned_.empty.length) problems.push(`no markup files matched ${quoted(patterns)}`);
 
   // Without a trustworthy declared set there is nothing to compare against,
   // and reporting every reference in the codebase as undefined would bury the
